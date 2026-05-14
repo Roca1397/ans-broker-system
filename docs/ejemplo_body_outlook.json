@@ -1,0 +1,16 @@
+{
+  "remitente": "juan.perez@empresaabc.com",
+  "asunto": "Inclusión de asegurados - Empresa ABC SAC - URGENTE",
+  "cuerpo_correo": "Estimados,\n\nSolicitamos la inclusión de los siguientes trabajadores en la póliza EPS vigente:\n\n1. María Lopez - DNI 70123456\n2. Carlos Ruiz - DNI 70234567\n3. Ana García - DNI 70345678\n\nLa fecha de ingreso de los trabajadores es el 01/06/2026 y necesitamos que la inclusión sea efectiva desde esa fecha.\n\nQuedamos atentos a la confirmación.\n\nSaludos cordiales,\nJuan Pérez\nGerente RRHH - Empresa ABC SAC",
+  "fecha_recepcion": "2026-05-08T14:30:00Z",
+  "prioridad": "Alta",
+  "adjuntos": [
+    {
+      "filename": "lista_asegurados.xlsx",
+      "content_base64": "UEsDBBQAAAAIAA...",
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    }
+  ],
+  "eml_base64": "UmVjZWl2ZWQ6IGZyb20gbWFpbC5leGFtcGxlLmNvbQ0K...",
+  "eml_filename": "inclusion_asegurados_2026_05_08.eml"
+}

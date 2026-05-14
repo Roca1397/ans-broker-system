@@ -1,0 +1,68 @@
+# REEMPLAZA: docker-compose.yml
+# Cambios:
+#   - Incluye automáticamente migración 002_outlook_integration.sql
+#   - Volumen ans_uploads para persistir .eml entre reinicios
+#   - Variable POWER_AUTOMATE_API_KEY
+
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ans_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ans_broker_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ans_pgdata:/var/lib/postgresql/data
+      # Las migraciones se ejecutan en orden alfabético al iniciar la BD por primera vez
+      - ./backend/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+      - ./backend/migrations/002_outlook_integration.sql:/docker-entrypoint-initdb.d/002_outlook_integration.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ans_backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@db:5432/ans_broker_db
+      SECRET_KEY: super-secret-key-change-in-production-32chars
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 480
+      MODEL_PATH: ./app/ml/models/ans_model.pkl
+      POWER_AUTOMATE_API_KEY: cambia-esta-clave-en-produccion
+      UPLOADS_DIR: /app/uploads
+      PROBABILIDAD_UMBRAL_ANS: 0.70
+      ALLOWED_ORIGINS: '["http://localhost:4200","http://localhost:80"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ans_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:20-alpine
+    container_name: ans_frontend
+    working_dir: /app
+    command: sh -c "npm install && npm start -- --host 0.0.0.0 --port 4200"
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - NODE_OPTIONS=--max_old_space_size=4096
+
+volumes:
+  ans_pgdata:
+  ans_uploads:
