@@ -8,10 +8,12 @@ REEMPLAZA: backend/app/core/config.py
 from pydantic_settings import BaseSettings
 from typing import List
 from pathlib import Path
-
+import os
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/ans_broker_db"
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://postgres:password@localhost:5432/ans_broker_db")
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
