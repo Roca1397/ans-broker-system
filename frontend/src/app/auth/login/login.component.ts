@@ -60,7 +60,7 @@ import { AuthService } from '../../services/auth.service';
               </div>
               <div>
                 <strong>Integración Outlook</strong>
-                <p>Ingesta automática vía Power Automate</p>
+                <p>Visualiza tus solicitudes en tiempo real</p>
               </div>
             </div>
           </div>
