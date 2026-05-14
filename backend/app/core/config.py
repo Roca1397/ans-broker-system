@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MODEL_PATH: str = "./app/ml/models/ans_model.pkl"
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:4200"]
+    ALLOWED_ORIGINS: List[str] = [
+    "http://localhost:4200",
+    "https://slaguardian.vercel.app"]
     ENVIRONMENT: str = "development"
 
     # ── Integración Power Automate / Outlook ──────────────────────
