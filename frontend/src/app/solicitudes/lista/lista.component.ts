@@ -344,15 +344,33 @@ import {
           </section>
 
           <!-- ── Adjuntos ───────────────────────────────────────── -->
-          <section class="form-section" *ngIf="(selectedDetail()!.datos_adjuntos?.length || 0) > 0">
-            <h4 class="section-title">Adjuntos</h4>
-            <div class="adjunto-list">
-              <div *ngFor="let a of selectedDetail()!.datos_adjuntos" class="adjunto-row" (click)="downloadAttach(a)">
-                <svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M12 2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V8l-4-6z" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                <span class="adj-name">{{ a.filename }}</span>
+          <section class="form-section">
+            <div class="adj-header">
+              <h4 class="section-title" style="margin:0">Adjuntos</h4>
+              <label class="btn-upload" [class.btn-uploading]="uploadingFiles()">
+                <svg *ngIf="!uploadingFiles()" viewBox="0 0 20 20" fill="none" width="13" height="13">
+                  <path d="M10 3v10M5 8l5-5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3 17h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <div *ngIf="uploadingFiles()" class="btn-spinner"></div>
+                {{ uploadingFiles() ? 'Subiendo...' : 'Adjuntar archivo' }}
+                <input type="file" multiple style="display:none" (change)="onFilesSelected($event)" [disabled]="uploadingFiles()" />
+              </label>
+            </div>
+
+            <div class="adj-error" *ngIf="uploadError()">{{ uploadError() }}</div>
+
+            <div class="adjunto-list" *ngIf="(selectedDetail()!.datos_adjuntos?.length || 0) > 0; else noAdj">
+              <div *ngFor="let a of selectedDetail()!.datos_adjuntos" class="adjunto-row">
+                <svg viewBox="0 0 20 20" fill="none" width="14" height="14" style="flex-shrink:0"><path d="M12 2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V8l-4-6z" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                <span class="adj-name" (click)="downloadAttach(a)">{{ a.filename }}</span>
                 <small class="adj-size">{{ formatBytes(a.size) }}</small>
+                <button class="adj-del" (click)="deleteAttach(a)" title="Eliminar adjunto">✕</button>
               </div>
             </div>
+            <ng-template #noAdj>
+              <p class="no-comments" style="margin-top:10px">Sin adjuntos.</p>
+            </ng-template>
           </section>
 
           <!-- ── Comentarios ────────────────────────────────────── -->
@@ -623,16 +641,33 @@ import {
     .pred-block.bajo .pred-pct  { color: var(--success); }
 
     /* Adjuntos */
+    .adj-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .btn-upload {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 12px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--bg-base);
+      color: var(--text-secondary); font-size: 0.78rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-upload:hover { border-color: var(--primary); color: var(--primary); background: rgba(0,90,158,0.06); }
+    .btn-upload.btn-uploading { opacity: 0.7; cursor: not-allowed; }
+    .adj-error { font-size: 0.76rem; color: var(--danger); background: rgba(255,76,76,0.08); border: 1px solid rgba(255,76,76,0.2); padding: 5px 10px; border-radius: var(--radius); margin-bottom: 8px; }
     .adjunto-list { display: flex; flex-direction: column; gap: 6px; }
     .adjunto-row {
       display: flex; align-items: center; gap: 8px;
       padding: 7px 10px; border-radius: var(--radius);
       border: 1px solid var(--border); background: var(--bg-base);
-      cursor: pointer; color: var(--text-primary); transition: background 0.12s;
+      color: var(--text-primary);
     }
-    .adjunto-row:hover { background: var(--bg-hover); }
-    .adj-name { flex: 1; font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--primary); }
+    .adj-name { flex: 1; font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--primary); cursor: pointer; }
+    .adj-name:hover { text-decoration: underline; }
     .adj-size { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+    .adj-del {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 0.75rem; padding: 2px 5px;
+      border-radius: 4px; line-height: 1; transition: all 0.15s;
+    }
+    .adj-del:hover { background: rgba(255,76,76,0.1); color: var(--danger); }
 
     /* Comentarios */
     .comments-box {
@@ -675,8 +710,10 @@ export class ListaSolicitudesComponent implements OnInit {
   selectedDetail = signal<SolicitudDetail | null>(null);
   loading    = signal(true);
   saving     = signal(false);
-  loadError  = signal<string | null>(null);
-  saveError  = signal<string | null>(null);
+  loadError      = signal<string | null>(null);
+  saveError      = signal<string | null>(null);
+  uploadingFiles = signal(false);
+  uploadError    = signal<string | null>(null);
   total      = signal(0);
   page       = signal(1);
   pages      = signal(1);
@@ -845,6 +882,43 @@ export class ListaSolicitudesComponent implements OnInit {
       link.download = a.filename;
       link.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  onFilesSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    const id = this.selectedDetail()?.id;
+    if (!id) return;
+    this.uploadingFiles.set(true);
+    this.uploadError.set(null);
+    this.service.subirAdjuntos(id, files).subscribe({
+      next: (res) => {
+        const d = this.selectedDetail();
+        if (d) this.selectedDetail.set({ ...d, datos_adjuntos: res.datos_adjuntos });
+        this.uploadingFiles.set(false);
+        input.value = '';
+      },
+      error: (err) => {
+        this.uploadError.set(err?.error?.detail || err?.message || 'Error al subir archivos');
+        this.uploadingFiles.set(false);
+        input.value = '';
+      },
+    });
+  }
+
+  deleteAttach(a: AdjuntoMeta) {
+    const id = this.selectedDetail()?.id;
+    if (!id || !confirm(`¿Eliminar el adjunto "${a.filename}"?`)) return;
+    this.service.eliminarAdjunto(id, a.filename).subscribe({
+      next: (res) => {
+        const d = this.selectedDetail();
+        if (d) this.selectedDetail.set({ ...d, datos_adjuntos: res.datos_adjuntos || [] });
+      },
+      error: (err) => {
+        this.uploadError.set(err?.error?.detail || err?.message || 'Error al eliminar adjunto');
+      },
     });
   }
 

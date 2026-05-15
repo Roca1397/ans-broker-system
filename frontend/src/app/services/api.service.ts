@@ -89,6 +89,20 @@ export class SolicitudesService {
   descargarAdjuntoPorNombre(id: string, nombre: string) {
     return this.http.get(this.urlAdjuntoPorNombre(id, nombre), { responseType: 'blob' });
   }
+
+  subirAdjuntos(id: string, files: File[]) {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f, f.name));
+    return this.http.post<{ ok: boolean; datos_adjuntos: any[] }>(
+      `${this.base}/${id}/adjuntos`, fd
+    );
+  }
+
+  eliminarAdjunto(id: string, nombre: string) {
+    return this.http.delete<{ ok: boolean; datos_adjuntos: any[] | null }>(
+      `${this.base}/${id}/adjuntos/${encodeURIComponent(nombre)}`
+    );
+  }
 }
 
 // ════════════════════════════════════════════════════════════

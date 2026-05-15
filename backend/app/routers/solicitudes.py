@@ -10,6 +10,8 @@ Mantiene los endpoints legados (POST /, GET /, /bulk-upload, etc.) y agrega:
   POST /api/solicitudes/{id}/comentario <- agregar comentario
   GET  /api/solicitudes/{id}/adjunto    <- descargar primer .eml
   GET  /api/solicitudes/{id}/adjuntos/{nombre} <- descargar adjunto específico
+  POST /api/solicitudes/{id}/adjuntos   <- subir adjuntos desde frontend
+  DELETE /api/solicitudes/{id}/adjuntos/{nombre} <- eliminar adjunto por nombre
   DELETE /api/solicitudes/{id}          <- eliminar (solo admin)
   POST /api/solicitudes/manual          <- creación manual desde frontend
 
@@ -24,6 +26,8 @@ from fastapi import (
     APIRouter, Depends, HTTPException, UploadFile, File,
     Query, status,
 )
+import mimetypes
+import shutil
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_
@@ -430,6 +434,89 @@ async def descargar_adjunto_por_nombre(
             if path and os.path.exists(path):
                 return FileResponse(path=path, filename=a.get("filename"))
     raise HTTPException(404, "Adjunto no encontrado")
+
+
+# ════════════════════════════════════════════════════════════════════
+# 6b) SUBIR ADJUNTOS DESDE FRONTEND
+# ════════════════════════════════════════════════════════════════════
+
+@router.post("/{solicitud_id}/adjuntos", status_code=status.HTTP_200_OK)
+async def subir_adjuntos(
+    solicitud_id: str,
+    files: List[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Solicitud).where(Solicitud.id == solicitud_id))
+    sol = result.scalar_one_or_none()
+    if not sol:
+        raise HTTPException(404, "Solicitud no encontrada")
+
+    base_dir = settings.emails_dir / (sol.nro_ticket or solicitud_id)
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    adjuntos_meta: List[dict] = list(sol.datos_adjuntos or [])
+    for upload in files:
+        safe_name = re.sub(r"[^\w.\-]", "_", upload.filename or "adjunto")
+        # Avoid overwriting — prefix with short uuid if name already exists
+        if any(a.get("filename") == safe_name for a in adjuntos_meta):
+            safe_name = f"{uuid.uuid4().hex[:6]}_{safe_name}"
+        dest = base_dir / safe_name
+        content_type = upload.content_type or (mimetypes.guess_type(safe_name)[0] or "application/octet-stream")
+        data = await upload.read()
+        dest.write_bytes(data)
+        adjuntos_meta.append({
+            "filename": safe_name,
+            "stored_filename": safe_name,
+            "path": str(dest),
+            "size": len(data),
+            "content_type": content_type,
+            "tipo": "adjunto",
+        })
+
+    sol.datos_adjuntos = adjuntos_meta
+    await db.commit()
+    await db.refresh(sol)
+    return {"ok": True, "datos_adjuntos": sol.datos_adjuntos}
+
+
+# ════════════════════════════════════════════════════════════════════
+# 6c) ELIMINAR ADJUNTO POR NOMBRE
+# ════════════════════════════════════════════════════════════════════
+
+@router.delete("/{solicitud_id}/adjuntos/{nombre}", status_code=status.HTTP_200_OK)
+async def eliminar_adjunto(
+    solicitud_id: str,
+    nombre: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Solicitud).where(Solicitud.id == solicitud_id))
+    sol = result.scalar_one_or_none()
+    if not sol or not sol.datos_adjuntos:
+        raise HTTPException(404, "Solicitud o adjunto no encontrado")
+
+    nuevo_listado = []
+    eliminado = False
+    for a in sol.datos_adjuntos:
+        if not eliminado and (a.get("filename") == nombre or a.get("stored_filename") == nombre):
+            path = a.get("path")
+            if path and os.path.exists(path):
+                try:
+                    shutil.os.remove(path)
+                except OSError:
+                    pass
+            eliminado = True
+        else:
+            nuevo_listado.append(a)
+
+    if not eliminado:
+        raise HTTPException(404, "Adjunto no encontrado")
+
+    sol.datos_adjuntos = nuevo_listado or None
+    await db.commit()
+    await db.refresh(sol)
+    return {"ok": True, "datos_adjuntos": sol.datos_adjuntos}
 
 
 # ════════════════════════════════════════════════════════════════════
