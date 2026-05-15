@@ -90,12 +90,51 @@ import { AlertasService } from '../../services/api.service';
               <span class="nav-label" *ngIf="!collapsed()">Cliente · Remitente</span>
             </a>
 
-            <a routerLink="/admin/catalogos" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Catálogos' : ''">
+            <a routerLink="/admin/tipos-solicitud" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Tipos de solicitud' : ''">
               <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="1.8"/>
-                <path d="M10 2v2m0 12v2M2 10h2m12 0h2m-3.17-5.66L12 6.17M8 13.83l-1.83 1.83M3.17 14.83L5 13m8-6 1.83-1.83" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <rect x="3" y="4" width="14" height="3" rx="1" fill="currentColor" opacity=".5"/>
+                <rect x="3" y="9" width="10" height="3" rx="1" fill="currentColor" opacity=".5"/>
+                <rect x="3" y="14" width="7" height="3" rx="1" fill="currentColor" opacity=".5"/>
               </svg>
-              <span class="nav-label" *ngIf="!collapsed()">Catálogos</span>
+              <span class="nav-label" *ngIf="!collapsed()">Tipos de solicitud</span>
+            </a>
+
+            <a routerLink="/admin/estados" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Estados' : ''">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span class="nav-label" *ngIf="!collapsed()">Estados</span>
+            </a>
+
+            <a routerLink="/admin/prioridades" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Prioridades' : ''">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
+                <path d="M4 5h12M4 10h8M4 15h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span class="nav-label" *ngIf="!collapsed()">Prioridades</span>
+            </a>
+
+            <a routerLink="/admin/ramos" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Ramos' : ''">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
+                <path d="M10 3C6 3 3 6 3 10s3 7 7 7 7-3 7-7-3-7-7-7z" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M10 7v3l2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span class="nav-label" *ngIf="!collapsed()">Ramos</span>
+            </a>
+
+            <a routerLink="/admin/clientes" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Clientes' : ''">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
+                <rect x="2" y="13" width="16" height="5" rx="1.5" stroke="currentColor" stroke-width="1.8"/>
+                <circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+              <span class="nav-label" *ngIf="!collapsed()">Clientes</span>
+            </a>
+
+            <a routerLink="/admin/aseguradoras" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Aseguradoras' : ''">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2L3 6v5c0 4 3.1 7.5 7 8.5C17 18.5 17 11 17 11V6L10 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+              <span class="nav-label" *ngIf="!collapsed()">Aseguradoras</span>
             </a>
           </ng-container>
         </nav>

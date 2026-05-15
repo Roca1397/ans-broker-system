@@ -99,6 +99,7 @@ async def admin_crear_aseguradora(data: AseguradoraCreate, db: AsyncSession = De
     obj = Aseguradora(
         nombre=data.nombre, codigo=data.codigo,
         ans_horas_limite=data.ans_horas_limite,
+        contacto=data.contacto, direccion=data.direccion,
         is_active=data.activo, activo=data.activo,
     )
     db.add(obj)
@@ -148,7 +149,7 @@ async def admin_listar_clientes(db: AsyncSession = Depends(get_db), _=Depends(ge
 
 @router.post("/clientes", response_model=ClienteOut, tags=["Admin · clientes"])
 async def admin_crear_cliente(data: ClienteCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
-    obj = Cliente(nombre=data.nombre, activo=data.activo)
+    obj = Cliente(nombre=data.nombre, contacto=data.contacto, direccion=data.direccion, activo=data.activo)
     db.add(obj)
     try:
         await db.commit()

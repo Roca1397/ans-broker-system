@@ -25,6 +25,8 @@ export interface Aseguradora {
   nombre: string;
   codigo: string;
   ans_horas_limite: number;
+  contacto?: string | null;
+  direccion?: string | null;
   activo?: boolean;
 }
 
@@ -41,7 +43,10 @@ export interface CatalogoItem {
   activo: boolean;
 }
 
-export interface Cliente extends CatalogoItem {}
+export interface Cliente extends CatalogoItem {
+  contacto?: string | null;
+  direccion?: string | null;
+}
 
 export interface ClienteRemitente {
   id: number;

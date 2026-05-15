@@ -229,7 +229,7 @@ export class AdminService {
   listClientes() {
     return this.http.get<Cliente[]>(`${this.base}/clientes`);
   }
-  createCliente(body: { nombre: string; activo?: boolean }) {
+  createCliente(body: { nombre: string; contacto?: string | null; direccion?: string | null; activo?: boolean }) {
     return this.http.post<Cliente>(`${this.base}/clientes`, body);
   }
   updateCliente(id: number, body: any) {

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"d:\\\\UPC\\\\TESIS\\\\ans-broker-system\\\\frontend\\\\src\\\\app\" -Recurse -Filter \"*.component.*\")",
       "Bash(Select-Object FullName)",
-      "PowerShell(head -30)"
+      "PowerShell(head -30)",
+      "Bash(Get-ChildItem -Path \"d:\\\\UPC\\\\TESIS\\\\ans-broker-system\\\\frontend\\\\src\\\\app\" -Recurse -File)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }

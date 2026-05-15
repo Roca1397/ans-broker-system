@@ -1,7 +1,3 @@
-/**
- * REEMPLAZA: frontend/src/app/app.routes.ts
- * Cambios respecto a v1: agregadas rutas /admin/* protegidas por adminGuard
- */
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { adminGuard } from './guards/admin.guard';
@@ -41,16 +37,52 @@ export const routes: Routes = [
         path: 'predicciones',
         loadComponent: () => import('./solicitudes/predicciones/predicciones.component').then(m => m.PrediccionesComponent),
       },
-      // ── Sólo admin ──────────────────────────────────────────
+
+      // ── Sólo admin ──────────────────────────────────────────────
+      {
+        path: 'admin/unauthorized',
+        loadComponent: () => import('./admin/unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent),
+      },
       {
         path: 'admin/clientes-remitentes',
         canActivate: [adminGuard],
         loadComponent: () => import('./admin/clientes-remitentes/clientes-remitentes.component').then(m => m.ClientesRemitentesComponent),
       },
+
+      // Catálogos simples: comparten el mismo componente genérico, cada uno con su configuración
       {
-        path: 'admin/catalogos',
+        path: 'admin/tipos-solicitud',
         canActivate: [adminGuard],
-        loadComponent: () => import('./admin/catalogos/catalogos.component').then(m => m.AdminCatalogosComponent),
+        data: { catalog: { key: 'tipos-solicitud', label: 'Tipos de solicitud', hint: 'Inclusión, Exclusión, Renovación, Emisión...' } },
+        loadComponent: () => import('./admin/catalogo-simple/catalogo-simple.component').then(m => m.CatalogoSimpleComponent),
+      },
+      {
+        path: 'admin/estados',
+        canActivate: [adminGuard],
+        data: { catalog: { key: 'estados-solicitud', label: 'Estados', hint: 'Pendiente, En Proceso, Finalizado...' } },
+        loadComponent: () => import('./admin/catalogo-simple/catalogo-simple.component').then(m => m.CatalogoSimpleComponent),
+      },
+      {
+        path: 'admin/prioridades',
+        canActivate: [adminGuard],
+        data: { catalog: { key: 'prioridades', label: 'Prioridades', hint: 'Baja, Media, Alta...' } },
+        loadComponent: () => import('./admin/catalogo-simple/catalogo-simple.component').then(m => m.CatalogoSimpleComponent),
+      },
+      {
+        path: 'admin/ramos',
+        canActivate: [adminGuard],
+        data: { catalog: { key: 'ramos', label: 'Ramos', hint: 'EPS, FOLA, SCTR-S, SCTR-P...' } },
+        loadComponent: () => import('./admin/catalogo-simple/catalogo-simple.component').then(m => m.CatalogoSimpleComponent),
+      },
+      {
+        path: 'admin/clientes',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./admin/clientes/clientes.component').then(m => m.AdminClientesComponent),
+      },
+      {
+        path: 'admin/aseguradoras',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./admin/aseguradoras/aseguradoras.component').then(m => m.AdminAseguradorasComponent),
       },
     ],
   },

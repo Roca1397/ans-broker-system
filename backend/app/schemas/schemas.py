@@ -52,6 +52,9 @@ class AseguradoraOut(BaseModel):
     nombre: str
     codigo: str
     ans_horas_limite: int
+    contacto: Optional[str] = None
+    direccion: Optional[str] = None
+    activo: Optional[bool] = True
 
     class Config:
         from_attributes = True
@@ -95,6 +98,8 @@ class AseguradoraCreate(BaseModel):
     nombre: str
     codigo: str = Field(..., max_length=50)
     ans_horas_limite: int = 48
+    contacto: Optional[str] = None
+    direccion: Optional[str] = None
     activo: bool = True
 
 
@@ -102,23 +107,31 @@ class AseguradoraUpdate(BaseModel):
     nombre: Optional[str] = None
     codigo: Optional[str] = None
     ans_horas_limite: Optional[int] = None
+    contacto: Optional[str] = None
+    direccion: Optional[str] = None
     activo: Optional[bool] = None
 
 
 # ── CLIENTES Y REMITENTES ─────────────────────────────────────────
 class ClienteCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=255)
+    contacto: Optional[str] = None
+    direccion: Optional[str] = None
     activo: bool = True
 
 
 class ClienteUpdate(BaseModel):
     nombre: Optional[str] = None
+    contacto: Optional[str] = None
+    direccion: Optional[str] = None
     activo: Optional[bool] = None
 
 
 class ClienteOut(BaseModel):
     id: int
     nombre: str
+    contacto: Optional[str] = None
+    direccion: Optional[str] = None
     activo: bool
 
     class Config:
