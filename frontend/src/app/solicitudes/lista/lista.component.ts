@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { SolicitudesService, CatalogosService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import {
-  SolicitudListItem, SolicitudDetail, Aseguradora, CatalogoItem, AdjuntoMeta, Cliente,
+  SolicitudListItem, SolicitudDetail, Aseguradora, CatalogoItem, AdjuntoMeta,
 } from '../../models/models';
 
 @Component({
@@ -361,11 +361,11 @@ import {
             <div class="adj-error" *ngIf="uploadError()">{{ uploadError() }}</div>
 
             <div class="adjunto-list" *ngIf="(selectedDetail()!.datos_adjuntos?.length || 0) > 0; else noAdj">
-              <div *ngFor="let a of selectedDetail()!.datos_adjuntos" class="adjunto-row">
+              <div *ngFor="let a of selectedDetail()!.datos_adjuntos" class="adjunto-row" (click)="downloadAttach(a)">
                 <svg viewBox="0 0 20 20" fill="none" width="14" height="14" style="flex-shrink:0"><path d="M12 2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V8l-4-6z" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                <span class="adj-name" (click)="downloadAttach(a)">{{ a.filename }}</span>
+                <span class="adj-name">{{ a.filename }}</span>
                 <small class="adj-size">{{ formatBytes(a.size) }}</small>
-                <button class="adj-del" (click)="deleteAttach(a)" title="Eliminar adjunto">✕</button>
+                <button class="adj-del" (click)="$event.stopPropagation(); deleteAttach(a)" title="Eliminar adjunto">✕</button>
               </div>
             </div>
             <ng-template #noAdj>
@@ -657,9 +657,10 @@ import {
       display: flex; align-items: center; gap: 8px;
       padding: 7px 10px; border-radius: var(--radius);
       border: 1px solid var(--border); background: var(--bg-base);
-      color: var(--text-primary);
+      color: var(--text-primary); cursor: pointer; transition: background 0.12s;
     }
-    .adj-name { flex: 1; font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--primary); cursor: pointer; }
+    .adjunto-row:hover { background: var(--bg-hover); }
+    .adj-name { flex: 1; font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--primary); }
     .adj-name:hover { text-decoration: underline; }
     .adj-size { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
     .adj-del {
@@ -875,13 +876,20 @@ export class ListaSolicitudesComponent implements OnInit {
   downloadAttach(a: AdjuntoMeta) {
     const id = this.selectedDetail()?.id;
     if (!id) return;
-    this.service.descargarAdjuntoPorNombre(id, a.filename).subscribe(blob => {
-      const url  = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = a.filename;
-      link.click();
-      URL.revokeObjectURL(url);
+    this.service.descargarAdjuntoPorNombre(id, a.filename).subscribe({
+      next: (blob) => {
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = a.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: (err) => {
+        this.uploadError.set('No se pudo descargar el adjunto: ' + (err?.error?.detail || err?.message || `HTTP ${err?.status}`));
+      },
     });
   }
 
