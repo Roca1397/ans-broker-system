@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # ── Integración Power Automate / Outlook ──────────────────────
-    POWER_AUTOMATE_API_KEY: str = "change-this-power-automate-api-key"
+    POWER_AUTOMATE_API_KEY: str = os.getenv("POWER_AUTOMATE_API_KEY", "abc123")
     UPLOADS_DIR: str = "./uploads"
     EMAILS_SUBDIR: str = "emails"
 
