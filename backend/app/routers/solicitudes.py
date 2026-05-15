@@ -150,13 +150,30 @@ async def crear_desde_outlook(
         umbral=settings.PROBABILIDAD_UMBRAL_ANS,
     )
 
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
     adjuntos_meta: List[dict] = []
     if payload.eml_base64:
+        _log.info(
+            "[outlook] %s: recibido eml_base64 (tipo=%s len=%s) eml_filename=%r",
+            nro_ticket,
+            type(payload.eml_base64).__name__,
+            len(str(payload.eml_base64)) if payload.eml_base64 else 0,
+            payload.eml_filename,
+        )
         try:
             meta = guardar_eml(payload.eml_base64, payload.eml_filename, nro_ticket)
+            _log.info(
+                "[outlook] %s: .eml guardado → stored_filename=%r path=%r size=%d",
+                nro_ticket, meta["stored_filename"], meta["path"], meta["size"],
+            )
             adjuntos_meta.append(meta)
         except Exception as e:
+            _log.error("[outlook] %s: FALLO guardando .eml: %s", nro_ticket, e)
             raise HTTPException(400, f"Error guardando .eml: {e}")
+    else:
+        _log.info("[outlook] %s: no se recibió eml_base64, solicitud sin archivo .eml", nro_ticket)
 
     if payload.adjuntos:
         for adj in payload.adjuntos:
@@ -164,7 +181,12 @@ async def crear_desde_outlook(
                 meta = guardar_adjunto(adj.content_base64, adj.filename, nro_ticket)
                 meta["content_type"] = adj.content_type
                 adjuntos_meta.append(meta)
+                _log.info(
+                    "[outlook] %s: adjunto guardado → %r path=%r size=%d",
+                    nro_ticket, meta["stored_filename"], meta["path"], meta["size"],
+                )
             except Exception as e:
+                _log.error("[outlook] %s: FALLO guardando adjunto '%s': %s", nro_ticket, adj.filename, e)
                 raise HTTPException(400, f"Error guardando adjunto '{adj.filename}': {e}")
 
     solicitud = Solicitud(

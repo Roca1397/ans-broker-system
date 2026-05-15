@@ -11,11 +11,14 @@ ARCHIVO NUEVO: backend/app/services/outlook_service.py
 """
 import base64
 import json
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -210,53 +213,103 @@ def _decode_pa_content(value: Any) -> bytes:
 
 
 def guardar_eml(eml_base64: Any, eml_filename: Optional[str], nro_ticket: str) -> dict:
-    """Guarda el archivo .eml en disco, manejando todos los formatos de Power Automate."""
+    """
+    Guarda el archivo .eml en disco y devuelve metadata.
+    Usa path absoluto para que los registros en BD sean válidos sin importar el CWD.
+    Lanza ValueError si el archivo no pudo escribirse o verificarse.
+    """
+    # emails_dir ya resuelve a path absoluto
     base_dir: Path = settings.emails_dir
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    if not eml_filename:
-        eml_filename = f"{nro_ticket}.eml"
-    eml_filename = _safe_filename(eml_filename)
-    if not eml_filename.lower().endswith(".eml"):
-        eml_filename += ".eml"
+    raw_filename = eml_filename or f"{nro_ticket}.eml"
+    display_name = _safe_filename(raw_filename)
+    if not display_name.lower().endswith(".eml"):
+        display_name += ".eml"
 
-    final_name = f"{nro_ticket}_{uuid.uuid4().hex[:6]}_{eml_filename}"
-    full_path = base_dir / final_name
+    stored_filename = f"{nro_ticket}_{uuid.uuid4().hex[:6]}_{display_name}"
+    full_path = base_dir / stored_filename  # absolute path
+
+    logger.info(
+        "[guardar_eml] ticket=%s | eml_filename_recibido=%r | display_name=%r | "
+        "stored_filename=%r | ruta_absoluta=%s",
+        nro_ticket, raw_filename, display_name, stored_filename, full_path,
+    )
 
     try:
         data = _decode_pa_content(eml_base64)
     except Exception as exc:
+        logger.error("[guardar_eml] Error decodificando eml_base64: %s", exc)
         raise ValueError(f"eml_base64 inválido: {exc}")
 
-    full_path.write_bytes(data)
+    logger.info("[guardar_eml] eml decodificado: %d bytes", len(data))
+
+    try:
+        full_path.write_bytes(data)
+    except OSError as exc:
+        logger.error("[guardar_eml] No se pudo escribir en disco: %s", exc)
+        raise ValueError(f"No se pudo escribir el archivo .eml en disco: {exc}")
+
+    # Verify the file was actually written
+    if not full_path.exists():
+        logger.error("[guardar_eml] Archivo NO encontrado en disco tras escritura: %s", full_path)
+        raise ValueError(f"El archivo fue escrito pero no se puede verificar en disco: {full_path}")
+
+    written_size = full_path.stat().st_size
+    logger.info(
+        "[guardar_eml] Archivo verificado en disco: %s (%d bytes)", full_path, written_size
+    )
 
     return {
-        "filename": eml_filename,
-        "stored_filename": final_name,
-        "path": str(full_path),
-        "size": len(data),
+        "filename": display_name,
+        "stored_filename": stored_filename,
+        "path": str(full_path),  # absolute path stored in DB
+        "size": written_size,
         "tipo": "eml",
     }
 
 
 def guardar_adjunto(content_base64: Any, filename: str, nro_ticket: str) -> dict:
-    """Guarda un adjunto genérico bajo emails_dir/{nro_ticket}/."""
+    """
+    Guarda un adjunto genérico bajo emails_dir/{nro_ticket}/.
+    Usa path absoluto y verifica escritura en disco.
+    """
     base_dir: Path = settings.emails_dir / nro_ticket
     base_dir.mkdir(parents=True, exist_ok=True)
 
     safe_name = _safe_filename(filename or f"adjunto_{uuid.uuid4().hex[:6]}")
     full_path = base_dir / safe_name
 
+    logger.info(
+        "[guardar_adjunto] ticket=%s | filename=%r | ruta_absoluta=%s",
+        nro_ticket, safe_name, full_path,
+    )
+
     try:
         data = _decode_pa_content(content_base64)
     except Exception as exc:
+        logger.error("[guardar_adjunto] Error decodificando content_base64: %s", exc)
         raise ValueError(f"content_base64 inválido: {exc}")
 
-    full_path.write_bytes(data)
+    try:
+        full_path.write_bytes(data)
+    except OSError as exc:
+        logger.error("[guardar_adjunto] No se pudo escribir en disco: %s", exc)
+        raise ValueError(f"No se pudo escribir el adjunto en disco: {exc}")
+
+    if not full_path.exists():
+        logger.error("[guardar_adjunto] Archivo NO encontrado tras escritura: %s", full_path)
+        raise ValueError(f"Adjunto escrito pero no verificado en disco: {full_path}")
+
+    written_size = full_path.stat().st_size
+    logger.info(
+        "[guardar_adjunto] Archivo verificado: %s (%d bytes)", full_path, written_size
+    )
 
     return {
         "filename": safe_name,
-        "path": str(full_path),
-        "size": len(data),
+        "stored_filename": safe_name,
+        "path": str(full_path),  # absolute path stored in DB
+        "size": written_size,
         "tipo": "adjunto",
     }

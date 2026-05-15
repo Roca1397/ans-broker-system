@@ -39,7 +39,8 @@ class Settings(BaseSettings):
 
     @property
     def emails_dir(self) -> Path:
-        p = Path(self.UPLOADS_DIR) / self.EMAILS_SUBDIR
+        # Resolve to absolute path so stored paths are valid regardless of CWD
+        p = Path(self.UPLOADS_DIR).resolve() / self.EMAILS_SUBDIR
         p.mkdir(parents=True, exist_ok=True)
         return p
 
