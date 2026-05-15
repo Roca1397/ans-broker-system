@@ -842,9 +842,29 @@ export class ListaSolicitudesComponent implements OnInit {
   saveChanges() {
     const id = this.selectedDetail()?.id;
     if (!id) return;
+
+    // Build a clean payload: empty strings → null, datetime-local → ISO 8601
+    const raw = this.editForm;
+    const payload: any = {
+      cliente:           raw.cliente || null,
+      tipo_solicitud_id: raw.tipo_solicitud_id ?? null,
+      estado_id:         raw.estado_id ?? null,
+      prioridad_id:      raw.prioridad_id ?? null,
+      aseguradora_id:    raw.aseguradora_id ?? null,
+      ramo_id:           raw.ramo_id ?? null,
+      asunto:            raw.asunto || null,
+      cuerpo_correo:     raw.cuerpo_correo || null,
+      // datetime-local gives "YYYY-MM-DDTHH:MM"; Pydantic needs ISO-8601 or null
+      fecha_finalizado:  raw.fecha_finalizado
+        ? new Date(raw.fecha_finalizado).toISOString()
+        : null,
+    };
+
+    console.log('[saveChanges] payload →', payload);
+
     this.saving.set(true);
     this.saveError.set(null);
-    this.service.actualizar(id, this.editForm).subscribe({
+    this.service.actualizar(id, payload).subscribe({
       next: (d) => {
         this.selectedDetail.set(d);
         this.saving.set(false);
@@ -852,7 +872,21 @@ export class ListaSolicitudesComponent implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        this.saveError.set(err?.error?.detail || err?.message || 'Error al guardar');
+        console.error('[saveChanges] PATCH error completo:', err);
+        const detail = err?.error?.detail;
+        let msg: string;
+        if (Array.isArray(detail)) {
+          // FastAPI 422: detail is [{loc, msg, type}, ...]
+          msg = detail.map((e: any) => {
+            const field = Array.isArray(e.loc) ? e.loc.slice(1).join('.') : '';
+            return field ? `${field}: ${e.msg}` : e.msg;
+          }).join(' | ');
+        } else if (typeof detail === 'string') {
+          msg = detail;
+        } else {
+          msg = err?.message || 'Error al guardar';
+        }
+        this.saveError.set(msg);
       },
     });
   }
