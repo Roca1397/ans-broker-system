@@ -253,6 +253,7 @@ class SolicitudUpdate(BaseModel):
     fecha_finalizado: Optional[datetime] = None
     comentarios: Optional[str] = None
     asunto: Optional[str] = None
+    cuerpo_correo: Optional[str] = None
 
 
 class SolicitudCreateManual(BaseModel):

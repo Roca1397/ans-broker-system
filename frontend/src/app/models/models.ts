@@ -129,6 +129,7 @@ export interface SolicitudUpdate {
   fecha_finalizado?: string | null;
   comentarios?: string;
   asunto?: string;
+  cuerpo_correo?: string;
 }
 
 // ── Predicciones ───────────────────────────────────────────
