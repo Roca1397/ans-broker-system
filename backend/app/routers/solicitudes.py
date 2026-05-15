@@ -28,7 +28,7 @@ from fastapi import (
 )
 import mimetypes
 import shutil
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, or_
 from sqlalchemy.orm import selectinload
@@ -102,12 +102,17 @@ def _solicitud_to_list_item(s: Solicitud) -> dict:
     }
 
 
+def _strip_content(adjuntos: list) -> list:
+    """Remove content_b64 from adjunto dicts — it's only needed for download, not for the frontend."""
+    return [{k: v for k, v in a.items() if k != "content_b64"} for a in adjuntos]
+
+
 def _solicitud_to_detail(s: Solicitud) -> dict:
     base = _solicitud_to_list_item(s)
     base.update({
         "cuerpo_correo": s.cuerpo_correo,
         "comentarios": s.comentarios,
-        "datos_adjuntos": s.datos_adjuntos or [],
+        "datos_adjuntos": _strip_content(s.datos_adjuntos or []),
         "tipo_solicitud_id": s.tipo_solicitud_id,
         "estado_id": s.estado_id,
         "aseguradora_id": s.aseguradora_id,
@@ -416,6 +421,7 @@ async def descargar_eml_principal(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    import base64 as _b64
     result = await db.execute(select(Solicitud).where(Solicitud.id == solicitud_id))
     sol = result.scalar_one_or_none()
     if not sol:
@@ -427,15 +433,26 @@ async def descargar_eml_principal(
     if not eml:
         eml = sol.datos_adjuntos[0]
 
-    path = eml.get("path")
-    if not path or not os.path.exists(path):
-        raise HTTPException(404, f"Archivo no encontrado en disco: {path}")
+    display_name = eml.get("filename", "correo.eml")
 
-    return FileResponse(
-        path=path,
-        filename=eml.get("filename", "correo.eml"),
-        media_type="message/rfc822",
-    )
+    # Priority 1: content stored in DB (works on ephemeral filesystems like Render)
+    if eml.get("content_b64"):
+        try:
+            file_data = _b64.b64decode(eml["content_b64"])
+            return Response(
+                content=file_data,
+                media_type="message/rfc822",
+                headers={"Content-Disposition": f'attachment; filename="{display_name}"'},
+            )
+        except Exception:
+            pass
+
+    # Priority 2: file on disk
+    path = eml.get("path")
+    if path and os.path.exists(path):
+        return FileResponse(path=path, filename=display_name, media_type="message/rfc822")
+
+    raise HTTPException(404, "Archivo .eml no disponible (no está en BD ni en disco)")
 
 
 @router.get("/{solicitud_id}/adjuntos/{nombre}")
@@ -445,6 +462,7 @@ async def descargar_adjunto_por_nombre(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    import base64 as _b64
     result = await db.execute(select(Solicitud).where(Solicitud.id == solicitud_id))
     sol = result.scalar_one_or_none()
     if not sol or not sol.datos_adjuntos:
@@ -453,31 +471,38 @@ async def descargar_adjunto_por_nombre(
     for a in sol.datos_adjuntos:
         if a.get("filename") == nombre or a.get("stored_filename") == nombre:
             display_name = a.get("filename", nombre)
-            stored = a.get("stored_filename") or a.get("filename")
-            # 1) stored path
-            candidates = [a.get("path")]
-            # 2) fallback: look in emails_dir by stored_filename, then by filename
-            if stored:
-                candidates.append(str(settings.emails_dir / stored))
-            if a.get("filename"):
-                candidates.append(str(settings.emails_dir / a["filename"]))
-            # 3) fallback: nro_ticket subfolder
-            if sol.nro_ticket and stored:
-                candidates.append(str(settings.emails_dir / sol.nro_ticket / stored))
-            if sol.nro_ticket and a.get("filename"):
-                candidates.append(str(settings.emails_dir / sol.nro_ticket / a["filename"]))
-
-            for candidate in candidates:
-                if candidate and os.path.exists(candidate):
-                    return FileResponse(path=candidate, filename=display_name)
-
-            raise HTTPException(
-                404,
-                f"Archivo '{stored}' registrado en la solicitud pero no encontrado en disco "
-                f"(rutas buscadas: {[c for c in candidates if c]})"
+            content_type = a.get("content_type") or (
+                "message/rfc822" if a.get("tipo") == "eml" else "application/octet-stream"
             )
 
-    raise HTTPException(404, f"No se encontró ningún adjunto con nombre '{nombre}' en esta solicitud")
+            # Priority 1: content stored in DB — always works on Render / ephemeral FS
+            if a.get("content_b64"):
+                try:
+                    file_data = _b64.b64decode(a["content_b64"])
+                    return Response(
+                        content=file_data,
+                        media_type=content_type,
+                        headers={"Content-Disposition": f'attachment; filename="{display_name}"'},
+                    )
+                except Exception:
+                    pass  # fall through to disk
+
+            # Priority 2: try absolute path stored in DB, then common locations
+            stored = a.get("stored_filename") or a.get("filename")
+            candidates = [
+                a.get("path"),
+                str(settings.emails_dir / stored) if stored else None,
+                str(settings.emails_dir / display_name),
+                str(settings.emails_dir / sol.nro_ticket / stored) if (sol.nro_ticket and stored) else None,
+                str(settings.emails_dir / sol.nro_ticket / display_name) if sol.nro_ticket else None,
+            ]
+            for candidate in candidates:
+                if candidate and os.path.exists(candidate):
+                    return FileResponse(path=candidate, filename=display_name, media_type=content_type)
+
+            raise HTTPException(404, "Archivo no disponible: no está almacenado en BD ni en disco")
+
+    raise HTTPException(404, f"Adjunto '{nombre}' no encontrado en esta solicitud")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -499,16 +524,19 @@ async def subir_adjuntos(
     base_dir = settings.emails_dir / (sol.nro_ticket or solicitud_id)
     base_dir.mkdir(parents=True, exist_ok=True)
 
+    import base64 as _b64
     adjuntos_meta: List[dict] = list(sol.datos_adjuntos or [])
     for upload in files:
         safe_name = re.sub(r"[^\w.\-]", "_", upload.filename or "adjunto")
-        # Avoid overwriting — prefix with short uuid if name already exists
         if any(a.get("filename") == safe_name for a in adjuntos_meta):
             safe_name = f"{uuid.uuid4().hex[:6]}_{safe_name}"
         dest = base_dir / safe_name
         content_type = upload.content_type or (mimetypes.guess_type(safe_name)[0] or "application/octet-stream")
         data = await upload.read()
-        dest.write_bytes(data)
+        try:
+            dest.write_bytes(data)
+        except OSError:
+            pass  # disk write is best-effort; content_b64 is the reliable copy
         adjuntos_meta.append({
             "filename": safe_name,
             "stored_filename": safe_name,
@@ -516,6 +544,7 @@ async def subir_adjuntos(
             "size": len(data),
             "content_type": content_type,
             "tipo": "adjunto",
+            "content_b64": _b64.b64encode(data).decode(),
         })
 
     sol.datos_adjuntos = adjuntos_meta

@@ -263,9 +263,11 @@ def guardar_eml(eml_base64: Any, eml_filename: Optional[str], nro_ticket: str) -
     return {
         "filename": display_name,
         "stored_filename": stored_filename,
-        "path": str(full_path),  # absolute path stored in DB
+        "path": str(full_path),
         "size": written_size,
         "tipo": "eml",
+        # Store content in DB so the file is always downloadable on ephemeral filesystems (Render)
+        "content_b64": base64.b64encode(data).decode(),
     }
 
 
@@ -309,7 +311,8 @@ def guardar_adjunto(content_base64: Any, filename: str, nro_ticket: str) -> dict
     return {
         "filename": safe_name,
         "stored_filename": safe_name,
-        "path": str(full_path),  # absolute path stored in DB
+        "path": str(full_path),
         "size": written_size,
         "tipo": "adjunto",
+        "content_b64": base64.b64encode(data).decode(),
     }
