@@ -124,7 +124,15 @@ import {
 
     <div class="card table-card">
       <div *ngIf="loading()" class="loading-state"><div class="spinner"></div><p>Cargando solicitudes...</p></div>
-      <div class="table-wrapper" *ngIf="!loading()">
+
+      <div *ngIf="!loading() && loadError()" class="error-state">
+        <div class="error-icon">⚠</div>
+        <h3>No se pudieron cargar las solicitudes</h3>
+        <p class="error-detail">{{ loadError() }}</p>
+        <button class="btn btn-primary btn-sm" (click)="load()">Reintentar</button>
+      </div>
+
+      <div class="table-wrapper" *ngIf="!loading() && !loadError()">
         <table>
           <thead>
             <tr>
@@ -180,7 +188,7 @@ import {
           </tbody>
         </table>
       </div>
-      <div class="pagination" *ngIf="!loading() && pages() > 1">
+      <div class="pagination" *ngIf="!loading() && !loadError() && pages() > 1">
         <button class="btn btn-outline btn-sm" (click)="goPage(page() - 1)" [disabled]="page() === 1">← Anterior</button>
         <span class="page-info">Página {{ page() }} de {{ pages() }}</span>
         <button class="btn btn-outline btn-sm" (click)="goPage(page() + 1)" [disabled]="page() === pages()">Siguiente →</button>
@@ -531,6 +539,10 @@ import {
     .empty-state h3 { color: var(--text-primary); margin-bottom: 6px; }
     .empty-state p { color: var(--text-muted); }
     .loading-state { padding: 60px; text-align: center; color: var(--text-muted); }
+    .error-state { padding: 50px 30px; text-align: center; }
+    .error-icon { font-size: 2.4rem; margin-bottom: 12px; color: var(--danger); }
+    .error-state h3 { color: var(--text-primary); margin-bottom: 6px; font-size: 1.05rem; }
+    .error-state .error-detail { color: var(--danger); font-size: 0.8rem; font-family: var(--font-mono, monospace); background: rgba(255,76,76,0.06); border: 1px solid rgba(255,76,76,0.2); padding: 8px 12px; border-radius: var(--radius); margin: 10px auto; max-width: 560px; word-break: break-all; }
     .spinner {
       width: 32px; height: 32px; border: 3px solid var(--border);
       border-top-color: var(--primary); border-radius: 50%;
@@ -651,6 +663,7 @@ export class ListaSolicitudesComponent implements OnInit {
   selectedDetail = signal<SolicitudDetail | null>(null);
   loading = signal(true);
   saving = signal(false);
+  loadError = signal<string | null>(null);
   total = signal(0);
   page = signal(1);
   pages = signal(1);
@@ -696,6 +709,7 @@ export class ListaSolicitudesComponent implements OnInit {
 
   load() {
     this.loading.set(true);
+    this.loadError.set(null);
     this.service.listarSharepoint({
       page: this.page(),
       size: 20,
@@ -714,7 +728,14 @@ export class ListaSolicitudesComponent implements OnInit {
         this.pages.set(r.pages);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: (err) => {
+        const status = err?.status;
+        const detail = err?.error?.detail || err?.message || 'Error desconocido';
+        const msg = status ? `HTTP ${status}: ${detail}` : detail;
+        console.error('[Solicitudes] Error cargando lista:', err);
+        this.loadError.set(msg);
+        this.loading.set(false);
+      },
     });
   }
 
