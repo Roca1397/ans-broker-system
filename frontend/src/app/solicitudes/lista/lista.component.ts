@@ -876,19 +876,28 @@ export class ListaSolicitudesComponent implements OnInit {
   downloadAttach(a: AdjuntoMeta) {
     const id = this.selectedDetail()?.id;
     if (!id) return;
-    this.service.descargarAdjuntoPorNombre(id, a.filename).subscribe({
+    // Log the full adjunto object so we can inspect all available fields
+    console.log('[downloadAttach] adjunto completo:', JSON.stringify(a));
+    // Use stored_filename (physical file on disk) if present; fall back to filename
+    const downloadKey = (a as any).stored_filename || a.filename;
+    const displayName = a.filename;
+    console.log('[downloadAttach] usando key para URL:', downloadKey);
+    this.uploadError.set(null);
+    this.service.descargarAdjuntoPorNombre(id, downloadKey).subscribe({
       next: (blob) => {
         const url  = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = a.filename;
+        link.download = displayName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       },
       error: (err) => {
-        this.uploadError.set('No se pudo descargar el adjunto: ' + (err?.error?.detail || err?.message || `HTTP ${err?.status}`));
+        const detail = err?.error?.detail || err?.message || `HTTP ${err?.status}`;
+        console.error('[downloadAttach] error:', err);
+        this.uploadError.set('No se pudo descargar: ' + detail);
       },
     });
   }
@@ -919,7 +928,8 @@ export class ListaSolicitudesComponent implements OnInit {
   deleteAttach(a: AdjuntoMeta) {
     const id = this.selectedDetail()?.id;
     if (!id || !confirm(`¿Eliminar el adjunto "${a.filename}"?`)) return;
-    this.service.eliminarAdjunto(id, a.filename).subscribe({
+    const deleteKey = (a as any).stored_filename || a.filename;
+    this.service.eliminarAdjunto(id, deleteKey).subscribe({
       next: (res) => {
         const d = this.selectedDetail();
         if (d) this.selectedDetail.set({ ...d, datos_adjuntos: res.datos_adjuntos || [] });

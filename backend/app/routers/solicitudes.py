@@ -430,10 +430,32 @@ async def descargar_adjunto_por_nombre(
 
     for a in sol.datos_adjuntos:
         if a.get("filename") == nombre or a.get("stored_filename") == nombre:
-            path = a.get("path")
-            if path and os.path.exists(path):
-                return FileResponse(path=path, filename=a.get("filename"))
-    raise HTTPException(404, "Adjunto no encontrado")
+            display_name = a.get("filename", nombre)
+            stored = a.get("stored_filename") or a.get("filename")
+            # 1) stored path
+            candidates = [a.get("path")]
+            # 2) fallback: look in emails_dir by stored_filename, then by filename
+            if stored:
+                candidates.append(str(settings.emails_dir / stored))
+            if a.get("filename"):
+                candidates.append(str(settings.emails_dir / a["filename"]))
+            # 3) fallback: nro_ticket subfolder
+            if sol.nro_ticket and stored:
+                candidates.append(str(settings.emails_dir / sol.nro_ticket / stored))
+            if sol.nro_ticket and a.get("filename"):
+                candidates.append(str(settings.emails_dir / sol.nro_ticket / a["filename"]))
+
+            for candidate in candidates:
+                if candidate and os.path.exists(candidate):
+                    return FileResponse(path=candidate, filename=display_name)
+
+            raise HTTPException(
+                404,
+                f"Archivo '{stored}' registrado en la solicitud pero no encontrado en disco "
+                f"(rutas buscadas: {[c for c in candidates if c]})"
+            )
+
+    raise HTTPException(404, f"No se encontró ningún adjunto con nombre '{nombre}' en esta solicitud")
 
 
 # ════════════════════════════════════════════════════════════════════
