@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     MODEL_PATH: str = "./app/ml/models/ans_model.pkl"
     ALLOWED_ORIGINS: List[str] = [
     "http://localhost:4200",
-    "https://slaguardian.vercel.app"]
+    "https://slaguardian.vercel.app"
+]
     ENVIRONMENT: str = "development"
 
     # ── Integración Power Automate / Outlook ──────────────────────
