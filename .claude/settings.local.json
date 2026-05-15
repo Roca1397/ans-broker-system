@@ -6,7 +6,9 @@
       "PowerShell(head -30)",
       "Bash(Get-ChildItem -Path \"d:\\\\UPC\\\\TESIS\\\\ans-broker-system\\\\frontend\\\\src\\\\app\" -Recurse -File)",
       "Bash(Sort-Object FullName)",
-      "Bash(npx ng *)"
+      "Bash(npx ng *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
