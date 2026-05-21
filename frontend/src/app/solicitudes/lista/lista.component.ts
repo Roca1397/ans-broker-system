@@ -294,12 +294,17 @@ import {
                 </select>
               </div>
 
-              <div class="field field-full">
+              <!-- Solo el administrador puede cambiar el ejecutivo asignado -->
+              <div class="field field-full" *ngIf="auth.isAdmin()">
                 <label class="field-label">Ejecutivo asignado</label>
                 <select [(ngModel)]="editForm.ejecutivo_id">
                   <option [ngValue]="null">— Sin asignar —</option>
                   <option *ngFor="let e of ejecutivos" [value]="e.id">{{ e.full_name }}</option>
                 </select>
+              </div>
+              <div class="field field-full" *ngIf="!auth.isAdmin()">
+                <label class="field-label">Ejecutivo asignado</label>
+                <div class="field-readonly">{{ selectedDetail()?.ejecutivo || '— Sin asignar —' }}</div>
               </div>
 
             </div>
@@ -599,6 +604,7 @@ import {
     .field select:focus,
     .field textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
     .field textarea { resize: vertical; min-height: 90px; }
+    .field-readonly { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.84rem; color: var(--text-secondary); background: var(--bg-surface); }
 
     /* Predicción block */
     .pred-block {
@@ -837,7 +843,7 @@ export class ListaSolicitudesComponent implements OnInit {
       fecha_finalizado:  raw.fecha_finalizado
         ? new Date(raw.fecha_finalizado).toISOString()
         : null,
-      ejecutivo_id:      raw.ejecutivo_id || null,
+      ...(this.auth.isAdmin() ? { ejecutivo_id: raw.ejecutivo_id || null } : {}),
     };
 
     console.log('[saveChanges] payload →', payload);

@@ -109,7 +109,7 @@ type FormMode = 'create' | 'edit';
             <label>Rol</label>
             <select [(ngModel)]="form.role">
               <option value="ejecutivo">Ejecutivo</option>
-              <option value="admin">Admin</option>
+              <option value="administrador">Administrador</option>
             </select>
           </div>
           <div class="field field-check">
@@ -298,12 +298,12 @@ export class AdminUsuariosComponent implements OnInit {
   }
 
   rolLabel(role: string): string {
-    if (role === 'admin') return 'Admin';
+    if (role === 'administrador') return 'Administrador';
     if (role === 'ejecutivo') return 'Ejecutivo';
     return role;
   }
 
   rolClass(role: string): string {
-    return role === 'admin' ? 'role-badge role-admin' : 'role-badge role-exec';
+    return role === 'administrador' ? 'role-badge role-admin' : 'role-badge role-exec';
   }
 }

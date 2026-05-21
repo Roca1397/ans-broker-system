@@ -63,6 +63,9 @@ async def resultados_predicciones(
         .limit(limit)
     )
 
+    if current_user.role == "ejecutivo":
+        query = query.where(Solicitud.ejecutivo_id == current_user.id)
+
     if nivel_riesgo:
         query = query.where(PrediccionANS.nivel_riesgo == nivel_riesgo)
 

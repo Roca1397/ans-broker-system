@@ -274,6 +274,10 @@ async def listar_solicitudes_sharepoint(
         selectinload(Solicitud.ejecutivo_rel),
     )
 
+    # Ejecutivos solo ven sus propias solicitudes
+    if current_user.role == "ejecutivo":
+        query = query.where(Solicitud.ejecutivo_id == current_user.id)
+
     if estado_id is not None:
         query = query.where(Solicitud.estado_id == estado_id)
     if prioridad_id is not None:
@@ -340,6 +344,8 @@ async def detalle_solicitud(
     sol = result.scalar_one_or_none()
     if not sol:
         raise HTTPException(404, "Solicitud no encontrada")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
     return _solicitud_to_detail(sol)
 
 
@@ -358,8 +364,14 @@ async def editar_solicitud(
     sol = result.scalar_one_or_none()
     if not sol:
         raise HTTPException(404, "Solicitud no encontrada")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes permiso para editar esta solicitud")
 
     payload = data.model_dump(exclude_unset=True)
+
+    # Ejecutivos no pueden cambiar el campo ejecutivo_id
+    if current_user.role == "ejecutivo":
+        payload.pop("ejecutivo_id", None)
 
     if "estado_id" in payload and payload["estado_id"]:
         estado = (await db.execute(
@@ -404,6 +416,8 @@ async def agregar_comentario(
     sol = result.scalar_one_or_none()
     if not sol:
         raise HTTPException(404, "Solicitud no encontrada")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     nuevo = f"[{timestamp}] {current_user.full_name}: {data.comentarios}"
@@ -431,6 +445,8 @@ async def descargar_eml_principal(
     sol = result.scalar_one_or_none()
     if not sol:
         raise HTTPException(404, "Solicitud no encontrada")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
     if not sol.datos_adjuntos:
         raise HTTPException(404, "Esta solicitud no tiene adjuntos")
 
@@ -472,6 +488,8 @@ async def descargar_adjunto_por_nombre(
     sol = result.scalar_one_or_none()
     if not sol or not sol.datos_adjuntos:
         raise HTTPException(404, "Adjunto no encontrado")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
 
     for a in sol.datos_adjuntos:
         if a.get("filename") == nombre or a.get("stored_filename") == nombre:
@@ -525,6 +543,8 @@ async def subir_adjuntos(
     sol = result.scalar_one_or_none()
     if not sol:
         raise HTTPException(404, "Solicitud no encontrada")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
 
     base_dir = settings.emails_dir / (sol.nro_ticket or solicitud_id)
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -573,6 +593,8 @@ async def eliminar_adjunto(
     sol = result.scalar_one_or_none()
     if not sol or not sol.datos_adjuntos:
         raise HTTPException(404, "Solicitud o adjunto no encontrado")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
 
     nuevo_listado = []
     eliminado = False
@@ -757,6 +779,9 @@ async def listar_solicitudes_legacy(
         selectinload(Solicitud.tipo_operacion),
     ).order_by(desc(Solicitud.created_at))
 
+    if current_user.role == "ejecutivo":
+        query = query.where(Solicitud.ejecutivo_id == current_user.id)
+
     if estado:
         query = query.where(Solicitud.estado == estado)
     if aseguradora_id:
@@ -797,6 +822,8 @@ async def obtener_solicitud_legacy(
     sol = result.scalar_one_or_none()
     if not sol:
         raise HTTPException(404, "Solicitud no encontrada")
+    if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
+        raise HTTPException(403, "No tienes acceso a esta solicitud")
     return _solicitud_to_detail(sol)
 
 

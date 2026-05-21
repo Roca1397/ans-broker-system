@@ -16,7 +16,7 @@ from uuid import UUID
 
 
 # ── AUTH ──────────────────────────────────────────────────────────
-VALID_ROLES = ("admin", "ejecutivo")
+VALID_ROLES = ("administrador", "ejecutivo")
 
 
 class UserCreate(BaseModel):

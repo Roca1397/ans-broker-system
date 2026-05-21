@@ -1,6 +1,6 @@
 """
 Router /api/admin
-Sólo accesible por usuarios con rol = 'admin'.
+Sólo accesible por usuarios con rol = 'administrador'.
 
 Endpoints:
   - CRUD de catálogos: tipos-solicitud, estados-solicitud, prioridades, ramos
