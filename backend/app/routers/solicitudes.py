@@ -21,6 +21,7 @@ import io
 import os
 import re
 import uuid
+from pathlib import Path
 import pandas as pd
 from fastapi import (
     APIRouter, Depends, HTTPException, UploadFile, File,
@@ -431,6 +432,48 @@ async def agregar_comentario(
 
 
 # ════════════════════════════════════════════════════════════════════
+# Helper: resolve physical path from adjunto metadata
+# ════════════════════════════════════════════════════════════════════
+
+def _find_file(a: dict, nro_ticket: Optional[str] = None) -> Optional[str]:
+    """
+    Locates the physical file for an adjunto entry.
+    Tries (in order):
+      1. Backward compat: decode content_b64 if present (old records).
+         Returns None so callers can handle it separately.
+      2. The stored 'path' value — works as absolute OR relative to CWD.
+      3. emails_dir / stored_filename (flat layout — eml files).
+      4. emails_dir / nro_ticket / stored_filename (nested — adjuntos).
+    Returns the first path string that exists on disk, or None.
+    """
+    stored = a.get("stored_filename") or a.get("filename")
+    path_val = a.get("path")
+
+    candidates: list[Optional[str]] = []
+
+    if path_val:
+        p = Path(path_val)
+        # absolute path (legacy)
+        if p.is_absolute():
+            candidates.append(str(p))
+        else:
+            # relative: resolve from CWD
+            candidates.append(str(Path.cwd() / p))
+            # also try from the backend root (one level up from app/)
+            candidates.append(str(Path(__file__).parent.parent.parent / p))
+
+    if stored:
+        candidates.append(str(settings.emails_dir / stored))
+        if nro_ticket:
+            candidates.append(str(settings.emails_dir / nro_ticket / stored))
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+# ════════════════════════════════════════════════════════════════════
 # 6) DESCARGA DE ADJUNTOS
 # ════════════════════════════════════════════════════════════════════
 
@@ -450,30 +493,26 @@ async def descargar_eml_principal(
     if not sol.datos_adjuntos:
         raise HTTPException(404, "Esta solicitud no tiene adjuntos")
 
-    eml = next((a for a in sol.datos_adjuntos if a.get("tipo") == "eml"), None)
-    if not eml:
-        eml = sol.datos_adjuntos[0]
-
+    eml = next((a for a in sol.datos_adjuntos if a.get("tipo") == "eml"), sol.datos_adjuntos[0])
     display_name = eml.get("filename", "correo.eml")
 
-    # Priority 1: content stored in DB (works on ephemeral filesystems like Render)
+    # Backward compat: old records stored content in DB
     if eml.get("content_b64"):
         try:
-            file_data = _b64.b64decode(eml["content_b64"])
             return Response(
-                content=file_data,
+                content=_b64.b64decode(eml["content_b64"]),
                 media_type="message/rfc822",
                 headers={"Content-Disposition": f'attachment; filename="{display_name}"'},
             )
         except Exception:
             pass
 
-    # Priority 2: file on disk
-    path = eml.get("path")
-    if path and os.path.exists(path):
-        return FileResponse(path=path, filename=display_name, media_type="message/rfc822")
+    # New records: serve from disk
+    file_path = _find_file(eml, sol.nro_ticket)
+    if file_path:
+        return FileResponse(path=file_path, filename=display_name, media_type="message/rfc822")
 
-    raise HTTPException(404, "Archivo .eml no disponible (no está en BD ni en disco)")
+    raise HTTPException(404, "Archivo .eml no disponible en disco")
 
 
 @router.get("/{solicitud_id}/adjuntos/{nombre}")
@@ -498,32 +537,23 @@ async def descargar_adjunto_por_nombre(
                 "message/rfc822" if a.get("tipo") == "eml" else "application/octet-stream"
             )
 
-            # Priority 1: content stored in DB — always works on Render / ephemeral FS
+            # Backward compat: old records stored content in DB
             if a.get("content_b64"):
                 try:
-                    file_data = _b64.b64decode(a["content_b64"])
                     return Response(
-                        content=file_data,
+                        content=_b64.b64decode(a["content_b64"]),
                         media_type=content_type,
                         headers={"Content-Disposition": f'attachment; filename="{display_name}"'},
                     )
                 except Exception:
-                    pass  # fall through to disk
+                    pass
 
-            # Priority 2: try absolute path stored in DB, then common locations
-            stored = a.get("stored_filename") or a.get("filename")
-            candidates = [
-                a.get("path"),
-                str(settings.emails_dir / stored) if stored else None,
-                str(settings.emails_dir / display_name),
-                str(settings.emails_dir / sol.nro_ticket / stored) if (sol.nro_ticket and stored) else None,
-                str(settings.emails_dir / sol.nro_ticket / display_name) if sol.nro_ticket else None,
-            ]
-            for candidate in candidates:
-                if candidate and os.path.exists(candidate):
-                    return FileResponse(path=candidate, filename=display_name, media_type=content_type)
+            # New records: serve from disk
+            file_path = _find_file(a, sol.nro_ticket)
+            if file_path:
+                return FileResponse(path=file_path, filename=display_name, media_type=content_type)
 
-            raise HTTPException(404, "Archivo no disponible: no está almacenado en BD ni en disco")
+            raise HTTPException(404, "Archivo no disponible en disco")
 
     raise HTTPException(404, f"Adjunto '{nombre}' no encontrado en esta solicitud")
 
@@ -549,7 +579,6 @@ async def subir_adjuntos(
     base_dir = settings.emails_dir / (sol.nro_ticket or solicitud_id)
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    import base64 as _b64
     adjuntos_meta: List[dict] = list(sol.datos_adjuntos or [])
     for upload in files:
         safe_name = re.sub(r"[^\w.\-]", "_", upload.filename or "adjunto")
@@ -558,18 +587,17 @@ async def subir_adjuntos(
         dest = base_dir / safe_name
         content_type = upload.content_type or (mimetypes.guess_type(safe_name)[0] or "application/octet-stream")
         data = await upload.read()
-        try:
-            dest.write_bytes(data)
-        except OSError:
-            pass  # disk write is best-effort; content_b64 is the reliable copy
+        dest.write_bytes(data)
+        # Store relative path so it is portable across environments
+        nro = sol.nro_ticket or solicitud_id
+        relative_path = f"uploads/emails/{nro}/{safe_name}"
         adjuntos_meta.append({
             "filename": safe_name,
             "stored_filename": safe_name,
-            "path": str(dest),
+            "path": relative_path,
             "size": len(data),
             "content_type": content_type,
             "tipo": "adjunto",
-            "content_b64": _b64.b64encode(data).decode(),
         })
 
     sol.datos_adjuntos = adjuntos_meta

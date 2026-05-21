@@ -9,7 +9,7 @@ Responsabilidades:
 
 ARCHIVO NUEVO: backend/app/services/outlook_service.py
 """
-import base64
+import base64  # still needed by _decode_pa_content
 import json
 import logging
 import re
@@ -214,11 +214,10 @@ def _decode_pa_content(value: Any) -> bytes:
 
 def guardar_eml(eml_base64: Any, eml_filename: Optional[str], nro_ticket: str) -> dict:
     """
-    Guarda el archivo .eml en disco y devuelve metadata.
-    Usa path absoluto para que los registros en BD sean válidos sin importar el CWD.
+    Guarda el archivo .eml en disco y devuelve solo metadata (sin content_b64).
+    El path guardado es relativo a la raíz del proyecto para ser portable.
     Lanza ValueError si el archivo no pudo escribirse o verificarse.
     """
-    # emails_dir ya resuelve a path absoluto
     base_dir: Path = settings.emails_dir
     base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -227,12 +226,12 @@ def guardar_eml(eml_base64: Any, eml_filename: Optional[str], nro_ticket: str) -
     if not display_name.lower().endswith(".eml"):
         display_name += ".eml"
 
-    stored_filename = f"{nro_ticket}_{uuid.uuid4().hex[:6]}_{display_name}"
-    full_path = base_dir / stored_filename  # absolute path
+    stored_filename = f"{nro_ticket}_{display_name}"
+    full_path = base_dir / stored_filename
 
     logger.info(
         "[guardar_eml] ticket=%s | eml_filename_recibido=%r | display_name=%r | "
-        "stored_filename=%r | ruta_absoluta=%s",
+        "stored_filename=%r | ruta=%s",
         nro_ticket, raw_filename, display_name, stored_filename, full_path,
     )
 
@@ -250,31 +249,29 @@ def guardar_eml(eml_base64: Any, eml_filename: Optional[str], nro_ticket: str) -
         logger.error("[guardar_eml] No se pudo escribir en disco: %s", exc)
         raise ValueError(f"No se pudo escribir el archivo .eml en disco: {exc}")
 
-    # Verify the file was actually written
     if not full_path.exists():
         logger.error("[guardar_eml] Archivo NO encontrado en disco tras escritura: %s", full_path)
         raise ValueError(f"El archivo fue escrito pero no se puede verificar en disco: {full_path}")
 
     written_size = full_path.stat().st_size
-    logger.info(
-        "[guardar_eml] Archivo verificado en disco: %s (%d bytes)", full_path, written_size
-    )
+    logger.info("[guardar_eml] Archivo verificado: %s (%d bytes)", full_path, written_size)
+
+    # Path relativo: uploads/emails/<stored_filename>
+    relative_path = f"{settings.UPLOADS_DIR.lstrip('./')}/{settings.EMAILS_SUBDIR}/{stored_filename}".lstrip("/")
 
     return {
         "filename": display_name,
         "stored_filename": stored_filename,
-        "path": str(full_path),
+        "path": relative_path,
         "size": written_size,
         "tipo": "eml",
-        # Store content in DB so the file is always downloadable on ephemeral filesystems (Render)
-        "content_b64": base64.b64encode(data).decode(),
     }
 
 
 def guardar_adjunto(content_base64: Any, filename: str, nro_ticket: str) -> dict:
     """
     Guarda un adjunto genérico bajo emails_dir/{nro_ticket}/.
-    Usa path absoluto y verifica escritura en disco.
+    Solo guarda metadata (sin content_b64).
     """
     base_dir: Path = settings.emails_dir / nro_ticket
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -283,7 +280,7 @@ def guardar_adjunto(content_base64: Any, filename: str, nro_ticket: str) -> dict
     full_path = base_dir / safe_name
 
     logger.info(
-        "[guardar_adjunto] ticket=%s | filename=%r | ruta_absoluta=%s",
+        "[guardar_adjunto] ticket=%s | filename=%r | ruta=%s",
         nro_ticket, safe_name, full_path,
     )
 
@@ -304,15 +301,14 @@ def guardar_adjunto(content_base64: Any, filename: str, nro_ticket: str) -> dict
         raise ValueError(f"Adjunto escrito pero no verificado en disco: {full_path}")
 
     written_size = full_path.stat().st_size
-    logger.info(
-        "[guardar_adjunto] Archivo verificado: %s (%d bytes)", full_path, written_size
-    )
+    logger.info("[guardar_adjunto] Archivo verificado: %s (%d bytes)", full_path, written_size)
+
+    relative_path = f"{settings.UPLOADS_DIR.lstrip('./')}/{settings.EMAILS_SUBDIR}/{nro_ticket}/{safe_name}".lstrip("/")
 
     return {
         "filename": safe_name,
         "stored_filename": safe_name,
-        "path": str(full_path),
+        "path": relative_path,
         "size": written_size,
         "tipo": "adjunto",
-        "content_b64": base64.b64encode(data).decode(),
     }
