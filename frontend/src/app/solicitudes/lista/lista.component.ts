@@ -25,7 +25,7 @@ import {
       </div>
     </div>
 
-    <!-- ── RISK SUMMARY ──────────────────────────────────────────── 
+    <!-- ── RISK SUMMARY ──────────────────────────────────────────── -->
     <div class="risk-summary">
       <div class="risk-card r-bajo">
         <span class="dot"></span>
@@ -39,7 +39,7 @@ import {
         <span class="dot"></span>
         <div><strong>{{ countAlto() }}</strong><small>Alto riesgo · Fuera de ANS</small></div>
       </div>
-    </div>-->
+    </div>
 
     <!-- ── SEARCH + FILTERS ──────────────────────────────────────── -->
     <div *ngIf="showFilters" class="filter-backdrop" (click)="showFilters = false"></div>
@@ -604,7 +604,6 @@ import {
     .field select:focus,
     .field textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
     .field textarea { resize: vertical; min-height: 90px; }
-    .field-readonly { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.84rem; color: var(--text-secondary); background: var(--bg-surface); }
 
     /* Predicción block */
     .pred-block {
