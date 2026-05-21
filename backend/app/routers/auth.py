@@ -20,7 +20,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         email=user_data.email,
         full_name=user_data.full_name,
         hashed_password=get_password_hash(user_data.password),
-        role=user_data.role if user_data.role in ("administrador", "ejecutivo") else "ejecutivo",
+        role=user_data.role if user_data.role in ("admin", "ejecutivo") else "ejecutivo",
     )
     db.add(user)
     await db.flush()

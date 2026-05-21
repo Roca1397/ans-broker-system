@@ -13,7 +13,7 @@ export class AuthService {
 
   currentUser = signal<User | null>(this.getStoredUser());
 
-  readonly isAdminSig = computed(() => (this.currentUser()?.role || '') === 'administrador');
+  readonly isAdminSig = computed(() => (this.currentUser()?.role || '') === 'admin');
 
   // Resolves once the startup user-refresh is done (or immediately if not logged in).
   // Guards await this so they always evaluate against the current DB role.
@@ -69,7 +69,7 @@ export class AuthService {
 
   /** Helper utilizable desde templates */
   isAdmin(): boolean {
-    return (this.currentUser()?.role || '') === 'administrador';
+    return (this.currentUser()?.role || '') === 'admin';
   }
 
   private getStoredUser(): User | null {
