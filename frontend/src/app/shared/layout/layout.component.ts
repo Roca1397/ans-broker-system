@@ -136,6 +136,15 @@ import { AlertasService } from '../../services/api.service';
               </svg>
               <span class="nav-label" *ngIf="!collapsed()">Aseguradoras</span>
             </a>
+
+            <a routerLink="/admin/usuarios" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Usuarios' : ''">
+              <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
+                <circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M1 17c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M13 9l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="nav-label" *ngIf="!collapsed()">Usuarios</span>
+            </a>
           </ng-container>
         </nav>
 

@@ -42,14 +42,6 @@ import { AuthService } from '../../services/auth.service';
               <label>Contraseña</label>
               <input type="password" formControlName="password" placeholder="Mín. 8 caracteres" />
             </div>
-            <div class="form-group">
-              <label>Rol</label>
-              <select formControlName="role">
-                <option value="user">Usuario</option>
-                <option value="analyst">Analista</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
             <button type="submit" class="btn btn-primary w-full btn-lg" [disabled]="loading || form.invalid">
               {{ loading ? 'Creando cuenta...' : 'Crear Cuenta' }}
             </button>
@@ -83,7 +75,6 @@ export class RegisterComponent {
       full_name: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(8)]],
-      role: ['user'],
     });
   }
 

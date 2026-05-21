@@ -5,7 +5,7 @@ import {
   Solicitud, SolicitudConPrediccion, Prediccion, DashboardStats,
   Alerta, Aseguradora, TipoOperacion, PaginatedResponse, BulkUploadResult,
   SolicitudListItem, SolicitudDetail, SolicitudUpdate,
-  CatalogoItem, Cliente, ClienteRemitente, EjecutivoUser,
+  CatalogoItem, Cliente, ClienteRemitente, EjecutivoUser, User,
 } from '../models/models';
 
 // ════════════════════════════════════════════════════════════
@@ -105,7 +105,7 @@ export class SolicitudesService {
   }
 
   getEjecutivos() {
-    return this.http.get<EjecutivoUser[]>(`${environment.apiUrl}/usuarios/ejecutivos`);
+    return this.http.get<EjecutivoUser[]>(`${environment.apiUrl}/users/ejecutivos`);
   }
 }
 
@@ -269,5 +269,19 @@ export class AdminService {
   }
   deleteAsociacion(id: number) {
     return this.http.delete(`${this.base}/clientes-remitentes/${id}`);
+  }
+
+  // Usuarios
+  listUsuarios() {
+    return this.http.get<User[]>(`${this.base}/usuarios`);
+  }
+  createUsuario(body: { email: string; full_name: string; password: string; role: string; is_active?: boolean }) {
+    return this.http.post<User>(`${this.base}/usuarios`, body);
+  }
+  updateUsuario(id: string, body: { full_name?: string; role?: string; is_active?: boolean; password?: string }) {
+    return this.http.patch<User>(`${this.base}/usuarios/${id}`, body);
+  }
+  deleteUsuario(id: string) {
+    return this.http.delete(`${this.base}/usuarios/${id}`);
   }
 }

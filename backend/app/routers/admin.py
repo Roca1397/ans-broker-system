@@ -18,7 +18,8 @@ from sqlalchemy.orm import selectinload
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import get_current_admin
+from app.core.security import get_current_admin, get_password_hash
+from app.models.user import User
 from app.models.solicitud import (
     Aseguradora, TipoSolicitud, EstadoSolicitud, Prioridad, Ramo,
     Cliente, ClienteRemitente,
@@ -28,6 +29,7 @@ from app.schemas.schemas import (
     AseguradoraOut, AseguradoraCreate, AseguradoraUpdate,
     ClienteCreate, ClienteUpdate, ClienteOut,
     ClienteRemitenteCreate, ClienteRemitenteUpdate, ClienteRemitenteOut,
+    UserOut, UserAdminCreate, UserAdminUpdate,
 )
 
 router = APIRouter()
@@ -274,5 +276,82 @@ async def admin_eliminar_asociacion(item_id: int, db: AsyncSession = Depends(get
     if not obj:
         raise HTTPException(404, "Asociación no encontrada")
     await db.delete(obj)
+    await db.commit()
+    return None
+
+
+# ════════════════════════════════════════════════════════════════════
+# USUARIOS (gestión por administrador)
+# ════════════════════════════════════════════════════════════════════
+
+@router.get("/usuarios", response_model=List[UserOut], tags=["Admin · usuarios"])
+async def admin_listar_usuarios(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    result = await db.execute(select(User).order_by(User.full_name))
+    return result.scalars().all()
+
+
+@router.post("/usuarios", response_model=UserOut, status_code=status.HTTP_201_CREATED, tags=["Admin · usuarios"])
+async def admin_crear_usuario(
+    data: UserAdminCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    existing = (await db.execute(select(User).where(User.email == data.email))).scalar_one_or_none()
+    if existing:
+        raise HTTPException(409, "El email ya está registrado")
+    user = User(
+        email=data.email,
+        full_name=data.full_name,
+        hashed_password=get_password_hash(data.password),
+        role=data.role,
+        is_active=data.is_active,
+    )
+    db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "El email ya está registrado")
+    await db.refresh(user)
+    return user
+
+
+@router.patch("/usuarios/{user_id}", response_model=UserOut, tags=["Admin · usuarios"])
+async def admin_actualizar_usuario(
+    user_id: str,
+    data: UserAdminUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    payload = data.model_dump(exclude_unset=True)
+    if "password" in payload and payload["password"]:
+        user.hashed_password = get_password_hash(payload.pop("password"))
+    else:
+        payload.pop("password", None)
+    for k, v in payload.items():
+        setattr(user, k, v)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.delete("/usuarios/{user_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin · usuarios"])
+async def admin_eliminar_usuario(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    if str(current_admin.id) == user_id:
+        raise HTTPException(400, "No puedes eliminar tu propia cuenta")
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+    await db.delete(user)
     await db.commit()
     return None

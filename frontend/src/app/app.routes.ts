@@ -84,6 +84,11 @@ export const routes: Routes = [
         canActivate: [adminGuard],
         loadComponent: () => import('./admin/aseguradoras/aseguradoras.component').then(m => m.AdminAseguradorasComponent),
       },
+      {
+        path: 'admin/usuarios',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./admin/usuarios/usuarios.component').then(m => m.AdminUsuariosComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '/dashboard' },

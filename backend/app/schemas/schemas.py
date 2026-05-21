@@ -16,11 +16,50 @@ from uuid import UUID
 
 
 # ── AUTH ──────────────────────────────────────────────────────────
+VALID_ROLES = ("admin", "ejecutivo")
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(..., min_length=3, max_length=255)
     password: str = Field(..., min_length=8)
-    role: str = Field(default="user")
+    role: str = Field(default="ejecutivo")
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in VALID_ROLES:
+            raise ValueError(f"Rol inválido. Valores permitidos: {', '.join(VALID_ROLES)}")
+        return v
+
+
+class UserAdminCreate(BaseModel):
+    email: EmailStr
+    full_name: str = Field(..., min_length=3, max_length=255)
+    password: str = Field(..., min_length=8)
+    role: str = Field(default="ejecutivo")
+    is_active: bool = True
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in VALID_ROLES:
+            raise ValueError(f"Rol inválido. Valores permitidos: {', '.join(VALID_ROLES)}")
+        return v
+
+
+class UserAdminUpdate(BaseModel):
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = Field(default=None, min_length=8)
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_ROLES:
+            raise ValueError(f"Rol inválido. Valores permitidos: {', '.join(VALID_ROLES)}")
+        return v
 
 
 class UserLogin(BaseModel):

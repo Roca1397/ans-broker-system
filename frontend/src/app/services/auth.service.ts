@@ -18,7 +18,7 @@ export class AuthService {
 
   currentUser = signal<User | null>(this.getStoredUser());
 
-  readonly isAdminSig = computed(() => (this.currentUser()?.role || '').toLowerCase() === 'admin');
+  readonly isAdminSig = computed(() => (this.currentUser()?.role || '') === 'admin');
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -53,7 +53,7 @@ export class AuthService {
 
   /** Helper utilizable desde templates */
   isAdmin(): boolean {
-    return (this.currentUser()?.role || '').toLowerCase() === 'admin';
+    return (this.currentUser()?.role || '') === 'admin';
   }
 
   private getStoredUser(): User | null {
