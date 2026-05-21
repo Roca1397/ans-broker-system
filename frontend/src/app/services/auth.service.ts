@@ -1,16 +1,11 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs/operators';
+import { tap, catchError, map } from 'rxjs/operators';
+import { of, firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthToken, User } from '../models/models';
 
-/**
- * REEMPLAZA: frontend/src/app/services/auth.service.ts
- * Cambios respecto a v1:
- *   - Agregado método isAdmin()
- *   - Agregado signal computado isAdminSig
- */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly TOKEN_KEY = 'ans_token';
@@ -20,7 +15,28 @@ export class AuthService {
 
   readonly isAdminSig = computed(() => (this.currentUser()?.role || '') === 'administrador');
 
-  constructor(private http: HttpClient, private router: Router) {}
+  // Resolves once the startup user-refresh is done (or immediately if not logged in).
+  // Guards await this so they always evaluate against the current DB role.
+  readonly isReady$: Promise<void>;
+
+  constructor(private http: HttpClient, private router: Router) {
+    if (this.isLoggedIn()) {
+      this.isReady$ = firstValueFrom(
+        this.refreshCurrentUser().pipe(catchError(() => of(null)), map(() => void 0))
+      );
+    } else {
+      this.isReady$ = Promise.resolve();
+    }
+  }
+
+  refreshCurrentUser() {
+    return this.http.get<User>(`${environment.apiUrl}/users/me`).pipe(
+      tap(user => {
+        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+        this.currentUser.set(user);
+      })
+    );
+  }
 
   login(email: string, password: string) {
     return this.http.post<AuthToken>(`${environment.apiUrl}/auth/login`, { email, password }).pipe(
