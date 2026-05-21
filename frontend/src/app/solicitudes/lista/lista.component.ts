@@ -25,7 +25,7 @@ import {
       </div>
     </div>
 
-    <!-- ── RISK SUMMARY ──────────────────────────────────────────── -->
+    <!-- ── RISK SUMMARY ──────────────────────────────────────────── 
     <div class="risk-summary">
       <div class="risk-card r-bajo">
         <span class="dot"></span>
@@ -39,7 +39,7 @@ import {
         <span class="dot"></span>
         <div><strong>{{ countAlto() }}</strong><small>Alto riesgo · Fuera de ANS</small></div>
       </div>
-    </div>
+    </div>-->
 
     <!-- ── SEARCH + FILTERS ──────────────────────────────────────── -->
     <div *ngIf="showFilters" class="filter-backdrop" (click)="showFilters = false"></div>
