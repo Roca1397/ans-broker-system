@@ -77,6 +77,12 @@ export interface Solicitud {
   created_at: string;
 }
 
+export interface EjecutivoUser {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 // ── Solicitud lista (SharePoint-like) ──────────────────────
 export interface SolicitudListItem {
   id: string;
@@ -96,6 +102,7 @@ export interface SolicitudListItem {
   prediccion?: string;
   tiene_adjuntos: boolean;
   fuente?: string;
+  ejecutivo?: string;
   created_at: string;
 }
 
@@ -117,6 +124,7 @@ export interface SolicitudDetail extends SolicitudListItem {
   aseguradora_id?: number | null;
   prioridad_id?: number | null;
   ramo_id?: number | null;
+  ejecutivo_id?: string | null;
 }
 
 export interface SolicitudUpdate {
@@ -130,6 +138,7 @@ export interface SolicitudUpdate {
   comentarios?: string;
   asunto?: string;
   cuerpo_correo?: string;
+  ejecutivo_id?: string | null;
 }
 
 // ── Predicciones ───────────────────────────────────────────

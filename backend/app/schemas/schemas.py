@@ -226,6 +226,7 @@ class SolicitudListItem(BaseModel):
     prediccion: Optional[str] = None
     tiene_adjuntos: bool = False
     fuente: Optional[str] = None
+    ejecutivo: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -241,6 +242,7 @@ class SolicitudDetail(SolicitudListItem):
     aseguradora_id: Optional[int] = None
     prioridad_id: Optional[int] = None
     ramo_id: Optional[int] = None
+    ejecutivo_id: Optional[UUID] = None
 
 
 class SolicitudUpdate(BaseModel):
@@ -254,6 +256,7 @@ class SolicitudUpdate(BaseModel):
     comentarios: Optional[str] = None
     asunto: Optional[str] = None
     cuerpo_correo: Optional[str] = None
+    ejecutivo_id: Optional[UUID] = None
 
 
 class SolicitudCreateManual(BaseModel):

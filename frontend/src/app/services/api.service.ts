@@ -5,7 +5,7 @@ import {
   Solicitud, SolicitudConPrediccion, Prediccion, DashboardStats,
   Alerta, Aseguradora, TipoOperacion, PaginatedResponse, BulkUploadResult,
   SolicitudListItem, SolicitudDetail, SolicitudUpdate,
-  CatalogoItem, Cliente, ClienteRemitente,
+  CatalogoItem, Cliente, ClienteRemitente, EjecutivoUser,
 } from '../models/models';
 
 // ════════════════════════════════════════════════════════════
@@ -102,6 +102,10 @@ export class SolicitudesService {
     return this.http.delete<{ ok: boolean; datos_adjuntos: any[] | null }>(
       `${this.base}/${id}/adjuntos/${encodeURIComponent(nombre)}`
     );
+  }
+
+  getEjecutivos() {
+    return this.http.get<EjecutivoUser[]>(`${environment.apiUrl}/usuarios/ejecutivos`);
   }
 }
 

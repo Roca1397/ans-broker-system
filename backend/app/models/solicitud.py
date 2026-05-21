@@ -205,11 +205,13 @@ class Solicitud(Base):
     # ── Trazabilidad ───────────────────────────────────────────────
     fuente = Column(String(50), default="manual")
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    ejecutivo_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     # ── Relaciones ─────────────────────────────────────────────────
-    usuario = relationship("User", back_populates="solicitudes")
+    usuario = relationship("User", foreign_keys=[usuario_id], back_populates="solicitudes")
+    ejecutivo_rel = relationship("User", foreign_keys=[ejecutivo_id])
     aseguradora = relationship("Aseguradora", back_populates="solicitudes")
     tipo_operacion = relationship("TipoOperacion", back_populates="solicitudes")
     tipo_solicitud = relationship("TipoSolicitud", back_populates="solicitudes")

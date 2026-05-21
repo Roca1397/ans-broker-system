@@ -23,3 +23,14 @@ async def list_users(
 @router.get("/me", response_model=UserOut)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/ejecutivos", response_model=List[UserOut])
+async def list_ejecutivos(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(User).where(User.role == "ejecutivo", User.is_active == True).order_by(User.full_name)
+    )
+    return result.scalars().all()

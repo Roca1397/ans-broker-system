@@ -22,5 +22,5 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
-    solicitudes = relationship("Solicitud", back_populates="usuario")
+    solicitudes = relationship("Solicitud", foreign_keys="[Solicitud.usuario_id]", back_populates="usuario")
     alertas = relationship("Alerta", back_populates="usuario")

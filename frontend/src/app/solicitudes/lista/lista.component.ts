@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { SolicitudesService, CatalogosService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import {
-  SolicitudListItem, SolicitudDetail, Aseguradora, CatalogoItem, AdjuntoMeta,
+  SolicitudListItem, SolicitudDetail, Aseguradora, CatalogoItem, AdjuntoMeta, EjecutivoUser,
 } from '../../models/models';
 
 @Component({
@@ -144,8 +144,7 @@ import {
               <th>Tipo</th>
               <th>Estado</th>
               <th>Prioridad</th>
-              <th>Predicción ANS</th>
-              <th class="col-prob">Prob.</th>
+              <th>Ejecutivo</th>
               <th>Aseguradora</th>
               <th>Ramo</th>
               <th>Recepción</th>
@@ -155,8 +154,7 @@ import {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let s of solicitudes()" (click)="openDetail(s)" class="row-clickable"
-                [class.row-fuera]="s.prediccion === 'Fuera de ANS'">
+            <tr *ngFor="let s of solicitudes()" (click)="openDetail(s)" class="row-clickable">
               <td><span class="ticket">{{ s.nro_ticket || '—' }}</span></td>
               <td class="cell-nowrap">{{ s.cliente || '—' }}</td>
               <td>
@@ -168,18 +166,7 @@ import {
                 <span *ngIf="s.prioridad" class="pill" [class]="prioridadClass(s.prioridad)">{{ s.prioridad }}</span>
                 <span *ngIf="!s.prioridad" class="muted-dash">—</span>
               </td>
-              <td>
-                <span *ngIf="s.prediccion" class="pred-badge" [class]="s.prediccion === 'Dentro de ANS' ? 'pred-ok' : 'pred-fail'">
-                  <span class="pred-dot"></span>{{ s.prediccion }}
-                </span>
-                <span *ngIf="!s.prediccion" class="muted-dash">—</span>
-              </td>
-              <td class="cell-prob">
-                <span *ngIf="s.probabilidad != null" class="prob-val" [class]="probClass(s.probabilidad)">
-                  {{ formatProb(s.probabilidad) }}
-                </span>
-                <span *ngIf="s.probabilidad == null" class="muted-dash">—</span>
-              </td>
+              <td class="cell-nowrap">{{ s.ejecutivo || '—' }}</td>
               <td class="cell-nowrap">{{ s.aseguradora || '—' }}</td>
               <td>{{ s.ramo || '—' }}</td>
               <td class="cell-date"><small>{{ formatDateShort(s.fecha_recepcion) || '—' }}</small></td>
@@ -190,7 +177,7 @@ import {
               <td><span class="open-arrow">›</span></td>
             </tr>
             <tr *ngIf="solicitudes().length === 0">
-              <td colspan="13">
+              <td colspan="12">
                 <div class="empty-state">
                   <div class="empty-icon">📭</div>
                   <h3>No hay solicitudes</h3>
@@ -304,6 +291,14 @@ import {
                 <select [(ngModel)]="editForm.ramo_id">
                   <option [ngValue]="null">—</option>
                   <option *ngFor="let r of ramos" [ngValue]="r.id">{{ r.nombre }}</option>
+                </select>
+              </div>
+
+              <div class="field field-full">
+                <label class="field-label">Ejecutivo asignado</label>
+                <select [(ngModel)]="editForm.ejecutivo_id">
+                  <option [ngValue]="null">— Sin asignar —</option>
+                  <option *ngFor="let e of ejecutivos" [value]="e.id">{{ e.full_name }}</option>
                 </select>
               </div>
 
@@ -484,7 +479,6 @@ import {
     tbody tr.row-clickable:hover { background: var(--bg-hover); }
     tbody tr.row-fuera { background: rgba(255,76,76,0.03); }
     .col-ticket { width: 110px; }
-    .col-prob   { width: 60px; }
     .col-adj    { width: 36px; }
     .col-open   { width: 28px; }
     .col-asunto { min-width: 160px; }
@@ -492,7 +486,6 @@ import {
     .cell-date    { white-space: nowrap; }
     .cell-center  { text-align: center; }
     .cell-truncate { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-    .cell-prob    { font-weight: 600; }
     .muted-dash   { color: var(--text-muted); }
     .ticket { font-family: var(--font-mono, monospace); color: var(--primary); font-weight: 600; }
     .open-arrow { color: var(--text-muted); font-size: 1.2rem; }
@@ -504,23 +497,6 @@ import {
     .p-media, .e-en-proceso { background: rgba(245,166,35,0.15); color: var(--warning); }
     .p-baja,  .e-finalizado { background: rgba(16,185,129,0.15); color: var(--success); }
     .pill-tipo { background: rgba(0,90,158,0.1); color: var(--primary); }
-
-    /* Predicción badge in table */
-    .pred-badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600;
-    }
-    .pred-badge .pred-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .pred-ok   { background: rgba(16,185,129,0.15); color: var(--success); }
-    .pred-ok .pred-dot   { background: var(--success); }
-    .pred-fail { background: rgba(255,76,76,0.12);  color: var(--danger); }
-    .pred-fail .pred-dot { background: var(--danger); }
-
-    /* Probabilidad in table */
-    .prob-val { font-size: 0.76rem; font-weight: 700; }
-    .prob-bajo  { color: var(--success); }
-    .prob-medio { color: var(--warning); }
-    .prob-alto  { color: var(--danger); }
 
     /* States */
     .empty-state { text-align: center; padding: 60px 20px; white-space: normal; }
@@ -719,12 +695,13 @@ export class ListaSolicitudesComponent implements OnInit {
   page       = signal(1);
   pages      = signal(1);
 
-  aseguradoras:  Aseguradora[]  = [];
+  aseguradoras:  Aseguradora[]   = [];
   tiposSolicitud: CatalogoItem[] = [];
-  estados:       CatalogoItem[] = [];
-  prioridades:   CatalogoItem[] = [];
-  ramos:         CatalogoItem[] = [];
-  clientes:      CatalogoItem[] = [];
+  estados:       CatalogoItem[]  = [];
+  prioridades:   CatalogoItem[]  = [];
+  ramos:         CatalogoItem[]  = [];
+  clientes:      CatalogoItem[]  = [];
+  ejecutivos:    EjecutivoUser[] = [];
 
   searchTerm = '';
   filterEstado = '';
@@ -757,6 +734,7 @@ export class ListaSolicitudesComponent implements OnInit {
     this.catalogos.getPrioridades().subscribe(d => this.prioridades = d);
     this.catalogos.getRamos().subscribe(d => this.ramos = d);
     this.catalogos.getClientes().subscribe(d => this.clientes = d);
+    this.service.getEjecutivos().subscribe({ next: d => this.ejecutivos = d, error: () => {} });
     this.load();
   }
 
@@ -825,6 +803,7 @@ export class ListaSolicitudesComponent implements OnInit {
           fecha_finalizado:  d.fecha_finalizado
             ? this.toLocalDatetimeInput(d.fecha_finalizado)
             : '',
+          ejecutivo_id:      d.ejecutivo_id ?? null,
         };
         this.newComment = '';
       },
@@ -858,6 +837,7 @@ export class ListaSolicitudesComponent implements OnInit {
       fecha_finalizado:  raw.fecha_finalizado
         ? new Date(raw.fecha_finalizado).toISOString()
         : null,
+      ejecutivo_id:      raw.ejecutivo_id || null,
     };
 
     console.log('[saveChanges] payload →', payload);

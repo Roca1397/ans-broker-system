@@ -98,6 +98,7 @@ def _solicitud_to_list_item(s: Solicitud) -> dict:
         "prediccion": s.prediccion,
         "tiene_adjuntos": bool(s.datos_adjuntos),
         "fuente": s.fuente,
+        "ejecutivo": s.ejecutivo_rel.full_name if s.ejecutivo_rel else None,
         "created_at": s.created_at,
     }
 
@@ -118,6 +119,7 @@ def _solicitud_to_detail(s: Solicitud) -> dict:
         "aseguradora_id": s.aseguradora_id,
         "prioridad_id": s.prioridad_id,
         "ramo_id": s.ramo_id,
+        "ejecutivo_id": str(s.ejecutivo_id) if s.ejecutivo_id else None,
     })
     return base
 
@@ -269,6 +271,7 @@ async def listar_solicitudes_sharepoint(
         selectinload(Solicitud.ramo),
         selectinload(Solicitud.estado_rel),
         selectinload(Solicitud.prioridad_rel),
+        selectinload(Solicitud.ejecutivo_rel),
     )
 
     if estado_id is not None:
@@ -331,6 +334,7 @@ async def detalle_solicitud(
             selectinload(Solicitud.ramo),
             selectinload(Solicitud.estado_rel),
             selectinload(Solicitud.prioridad_rel),
+            selectinload(Solicitud.ejecutivo_rel),
         ).where(Solicitud.id == solicitud_id)
     )
     sol = result.scalar_one_or_none()
@@ -378,6 +382,7 @@ async def editar_solicitud(
             selectinload(Solicitud.ramo),
             selectinload(Solicitud.estado_rel),
             selectinload(Solicitud.prioridad_rel),
+            selectinload(Solicitud.ejecutivo_rel),
         ).where(Solicitud.id == solicitud_id)
     )
     sol = result.scalar_one()
