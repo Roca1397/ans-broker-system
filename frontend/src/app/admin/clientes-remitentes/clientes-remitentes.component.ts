@@ -52,13 +52,6 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
             <option *ngFor="let r of ramos" [ngValue]="r.id">{{ r.nombre }}</option>
           </select>
         </div>
-        <div class="field">
-          <label>Estado</label>
-          <select [(ngModel)]="form.activo">
-            <option [ngValue]="true">Activo</option>
-            <option [ngValue]="false">Inactivo</option>
-          </select>
-        </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="save()" [disabled]="!canSubmit() || saving()">
@@ -84,7 +77,6 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
             <th>Remitente</th>
             <th>Aseguradora</th>
             <th>Ramo</th>
-            <th>Estado</th>
             <th></th>
           </tr>
         </thead>
@@ -94,14 +86,13 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
             <td><span class="email">{{ a.remitente }}</span></td>
             <td>{{ a.aseguradora_nombre || '—' }}</td>
             <td>{{ a.ramo_nombre || '—' }}</td>
-            <td><span class="pill" [class.activo]="a.activo">{{ a.activo ? 'Activo' : 'Inactivo' }}</span></td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(a)">Editar</button>
               <button class="btn btn-sm btn-danger" (click)="remove(a)">Eliminar</button>
             </td>
           </tr>
           <tr *ngIf="filtered().length === 0">
-            <td colspan="6">
+            <td colspan="5">
               <div class="empty-state"><p>No hay asociaciones registradas.</p></div>
             </td>
           </tr>

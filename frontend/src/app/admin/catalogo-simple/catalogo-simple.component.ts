@@ -29,13 +29,6 @@ interface CatalogConfig {
           <label>Nombre <span class="req">*</span></label>
           <input type="text" [(ngModel)]="form.nombre" placeholder="Nombre" />
         </div>
-        <div class="field">
-          <label>Estado</label>
-          <select [(ngModel)]="form.activo">
-            <option [ngValue]="true">Activo</option>
-            <option [ngValue]="false">Inactivo</option>
-          </select>
-        </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="save()" [disabled]="!form.nombre?.trim() || saving()">
@@ -53,7 +46,6 @@ interface CatalogConfig {
           <tr>
             <th class="th-id">ID</th>
             <th>Nombre</th>
-            <th>Estado</th>
             <th></th>
           </tr>
         </thead>
@@ -61,14 +53,13 @@ interface CatalogConfig {
           <tr *ngFor="let item of items()">
             <td><small class="muted">#{{ item.id }}</small></td>
             <td><strong>{{ item.nombre }}</strong></td>
-            <td><span class="pill" [class.activo]="item.activo">{{ item.activo ? 'Activo' : 'Inactivo' }}</span></td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(item)">Editar</button>
               <button class="btn btn-sm btn-danger" (click)="remove(item)">Eliminar</button>
             </td>
           </tr>
           <tr *ngIf="items().length === 0">
-            <td colspan="4"><div class="empty-state"><p>No hay registros.</p></div></td>
+            <td colspan="3"><div class="empty-state"><p>No hay registros.</p></div></td>
           </tr>
         </tbody>
       </table>

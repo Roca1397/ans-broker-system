@@ -39,13 +39,6 @@ import { Aseguradora } from '../../models/models';
           <label>Dirección</label>
           <input type="text" [(ngModel)]="form.direccion" placeholder="Dirección completa" />
         </div>
-        <div class="field">
-          <label>Estado</label>
-          <select [(ngModel)]="form.activo">
-            <option [ngValue]="true">Activo</option>
-            <option [ngValue]="false">Inactivo</option>
-          </select>
-        </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="save()" [disabled]="!form.nombre?.trim() || !form.codigo?.trim() || saving()">
@@ -66,7 +59,6 @@ import { Aseguradora } from '../../models/models';
             <th>Código</th>
             <th>ANS h.</th>
             <th>Contacto</th>
-            <th>Estado</th>
             <th></th>
           </tr>
         </thead>
@@ -77,14 +69,13 @@ import { Aseguradora } from '../../models/models';
             <td><code>{{ item.codigo }}</code></td>
             <td>{{ item.ans_horas_limite }}h</td>
             <td>{{ item.contacto || '—' }}</td>
-            <td><span class="pill" [class.activo]="item.activo">{{ item.activo ? 'Activo' : 'Inactivo' }}</span></td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(item)">Editar</button>
               <button class="btn btn-sm btn-danger" (click)="remove(item)">Eliminar</button>
             </td>
           </tr>
           <tr *ngIf="items().length === 0">
-            <td colspan="7"><div class="empty-state"><p>No hay aseguradoras registradas.</p></div></td>
+            <td colspan="6"><div class="empty-state"><p>No hay aseguradoras registradas.</p></div></td>
           </tr>
         </tbody>
       </table>

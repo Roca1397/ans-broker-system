@@ -24,23 +24,6 @@ import {
         <a routerLink="/solicitudes/nueva" class="btn btn-primary">+ Nueva Solicitud</a>
       </div>
     </div>
-
-    <!-- ── RISK SUMMARY ──────────────────────────────────────────── 
-    <div class="risk-summary">
-      <div class="risk-card r-bajo">
-        <span class="dot"></span>
-        <div><strong>{{ countBajo() }}</strong><small>Bajo riesgo</small></div>
-      </div>
-      <div class="risk-card r-medio">
-        <span class="dot"></span>
-        <div><strong>{{ countMedio() }}</strong><small>Riesgo medio</small></div>
-      </div>
-      <div class="risk-card r-alto">
-        <span class="dot"></span>
-        <div><strong>{{ countAlto() }}</strong><small>Alto riesgo · Fuera de ANS</small></div>
-      </div>
-    </div>-->
-
     <!-- ── SEARCH + FILTERS ──────────────────────────────────────── -->
     <div *ngIf="showFilters" class="filter-backdrop" (click)="showFilters = false"></div>
     <div class="search-toolbar">
