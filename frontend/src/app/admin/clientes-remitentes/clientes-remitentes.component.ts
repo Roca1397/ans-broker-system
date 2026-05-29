@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, CatalogosService } from '../../services/api.service';
-import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../models/models';
+import { ClienteRemitente, Cliente } from '../../models/models';
 
 /**
  * ARCHIVO NUEVO: frontend/src/app/admin/clientes-remitentes/clientes-remitentes.component.ts
@@ -38,20 +38,6 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
           <label>Remitente (correo) <span class="req">*</span></label>
           <input type="email" [(ngModel)]="form.remitente" placeholder="ejemplo@cliente.com" />
         </div>
-        <div class="field">
-          <label>Aseguradora</label>
-          <select [(ngModel)]="form.aseguradora_id">
-            <option [ngValue]="null">— Ninguna —</option>
-            <option *ngFor="let a of aseguradoras" [ngValue]="a.id">{{ a.nombre }}</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Ramo</label>
-          <select [(ngModel)]="form.ramo_id">
-            <option [ngValue]="null">— Ninguno —</option>
-            <option *ngFor="let r of ramos" [ngValue]="r.id">{{ r.nombre }}</option>
-          </select>
-        </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="save()" [disabled]="!canSubmit() || saving()">
@@ -75,8 +61,6 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
           <tr>
             <th>Cliente</th>
             <th>Remitente</th>
-            <th>Aseguradora</th>
-            <th>Ramo</th>
             <th></th>
           </tr>
         </thead>
@@ -84,15 +68,13 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
           <tr *ngFor="let a of filtered()">
             <td><strong>{{ a.cliente }}</strong></td>
             <td><span class="email">{{ a.remitente }}</span></td>
-            <td>{{ a.aseguradora_nombre || '—' }}</td>
-            <td>{{ a.ramo_nombre || '—' }}</td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(a)">Editar</button>
               <button class="btn btn-sm btn-danger" (click)="remove(a)">Eliminar</button>
             </td>
           </tr>
           <tr *ngIf="filtered().length === 0">
-            <td colspan="5">
+            <td colspan="3">
               <div class="empty-state"><p>No hay asociaciones registradas.</p></div>
             </td>
           </tr>
@@ -139,8 +121,6 @@ import { ClienteRemitente, Aseguradora, CatalogoItem, Cliente } from '../../mode
 export class ClientesRemitentesComponent implements OnInit {
   asociaciones = signal<ClienteRemitente[]>([]);
   clientes: Cliente[] = [];
-  aseguradoras: Aseguradora[] = [];
-  ramos: CatalogoItem[] = [];
 
   loading = signal(true);
   saving = signal(false);
@@ -153,14 +133,12 @@ export class ClientesRemitentesComponent implements OnInit {
   constructor(private admin: AdminService, private catalogos: CatalogosService) {}
 
   ngOnInit() {
-    this.catalogos.getAseguradoras().subscribe(d => this.aseguradoras = d);
-    this.catalogos.getRamos().subscribe(d => this.ramos = d);
     this.catalogos.getClientes().subscribe(d => this.clientes = d);
     this.load();
   }
 
   emptyForm() {
-    return { cliente: '', remitente: '', aseguradora_id: null, ramo_id: null, activo: true };
+    return { cliente: '', remitente: '', activo: true };
   }
 
   load() {
@@ -176,9 +154,7 @@ export class ClientesRemitentesComponent implements OnInit {
     if (!f) return this.asociaciones();
     return this.asociaciones().filter(a =>
       (a.cliente || '').toLowerCase().includes(f) ||
-      (a.remitente || '').toLowerCase().includes(f) ||
-      (a.aseguradora_nombre || '').toLowerCase().includes(f) ||
-      (a.ramo_nombre || '').toLowerCase().includes(f)
+      (a.remitente || '').toLowerCase().includes(f)
     );
   }
 
@@ -202,13 +178,7 @@ export class ClientesRemitentesComponent implements OnInit {
 
   edit(a: ClienteRemitente) {
     this.editingId.set(a.id);
-    this.form = {
-      cliente: a.cliente,
-      remitente: a.remitente,
-      aseguradora_id: a.aseguradora_id ?? null,
-      ramo_id: a.ramo_id ?? null,
-      activo: a.activo,
-    };
+    this.form = { cliente: a.cliente, remitente: a.remitente, activo: a.activo };
   }
 
   cancel() {
