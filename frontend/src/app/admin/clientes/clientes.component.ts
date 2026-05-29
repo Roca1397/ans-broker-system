@@ -1,8 +1,8 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from '../../services/api.service';
-import { Cliente } from '../../models/models';
+import { AdminService, CatalogosService } from '../../services/api.service';
+import { Cliente, CatalogoItem } from '../../models/models';
 
 @Component({
   selector: 'app-admin-clientes',
@@ -31,6 +31,13 @@ import { Cliente } from '../../models/models';
           <label>Dirección</label>
           <input type="text" [(ngModel)]="form.direccion" placeholder="Dirección completa" />
         </div>
+        <div class="field">
+          <label>Prioridad</label>
+          <select [(ngModel)]="form.prioridad_id">
+            <option [ngValue]="null">— Sin prioridad —</option>
+            <option *ngFor="let p of prioridades" [ngValue]="p.id">{{ p.nombre }}</option>
+          </select>
+        </div>
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="save()" [disabled]="!form.nombre?.trim() || saving()">
@@ -50,6 +57,7 @@ import { Cliente } from '../../models/models';
             <th>Razón social</th>
             <th>Contacto</th>
             <th>Dirección</th>
+            <th>Prioridad</th>
             <th></th>
           </tr>
         </thead>
@@ -59,13 +67,14 @@ import { Cliente } from '../../models/models';
             <td><strong>{{ item.nombre }}</strong></td>
             <td>{{ item.contacto || '—' }}</td>
             <td class="td-direccion">{{ item.direccion || '—' }}</td>
+            <td>{{ item.prioridad_nombre || '—' }}</td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(item)">Editar</button>
               <button class="btn btn-sm btn-danger" (click)="remove(item)">Eliminar</button>
             </td>
           </tr>
           <tr *ngIf="items().length === 0">
-            <td colspan="5"><div class="empty-state"><p>No hay clientes registrados.</p></div></td>
+            <td colspan="6"><div class="empty-state"><p>No hay clientes registrados.</p></div></td>
           </tr>
         </tbody>
       </table>
@@ -102,15 +111,19 @@ import { Cliente } from '../../models/models';
 })
 export class AdminClientesComponent implements OnInit {
   items = signal<Cliente[]>([]);
+  prioridades: CatalogoItem[] = [];
   loading = signal(true);
   saving = signal(false);
   editingId = signal<number | null>(null);
   error = signal('');
-  form: any = { nombre: '', contacto: '', direccion: '', activo: true };
+  form: any = { nombre: '', contacto: '', direccion: '', activo: true, prioridad_id: null };
 
-  constructor(private admin: AdminService) {}
+  constructor(private admin: AdminService, private catalogos: CatalogosService) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.catalogos.getPrioridades().subscribe(d => this.prioridades = d);
+    this.load();
+  }
 
   load(): void {
     this.loading.set(true);
@@ -134,12 +147,18 @@ export class AdminClientesComponent implements OnInit {
 
   edit(item: Cliente): void {
     this.editingId.set(item.id);
-    this.form = { nombre: item.nombre, contacto: item.contacto || '', direccion: item.direccion || '', activo: item.activo };
+    this.form = {
+      nombre: item.nombre,
+      contacto: item.contacto || '',
+      direccion: item.direccion || '',
+      activo: item.activo,
+      prioridad_id: item.prioridad_id ?? null,
+    };
   }
 
   cancel(): void {
     this.editingId.set(null);
-    this.form = { nombre: '', contacto: '', direccion: '', activo: true };
+    this.form = { nombre: '', contacto: '', direccion: '', activo: true, prioridad_id: null };
     this.error.set('');
   }
 

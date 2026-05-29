@@ -157,6 +157,7 @@ class ClienteCreate(BaseModel):
     contacto: Optional[str] = None
     direccion: Optional[str] = None
     activo: bool = True
+    prioridad_id: Optional[int] = None
 
 
 class ClienteUpdate(BaseModel):
@@ -164,6 +165,7 @@ class ClienteUpdate(BaseModel):
     contacto: Optional[str] = None
     direccion: Optional[str] = None
     activo: Optional[bool] = None
+    prioridad_id: Optional[int] = None
 
 
 class ClienteOut(BaseModel):
@@ -172,6 +174,8 @@ class ClienteOut(BaseModel):
     contacto: Optional[str] = None
     direccion: Optional[str] = None
     activo: bool
+    prioridad_id: Optional[int] = None
+    prioridad_nombre: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -46,6 +46,8 @@ export interface CatalogoItem {
 export interface Cliente extends CatalogoItem {
   contacto?: string | null;
   direccion?: string | null;
+  prioridad_id?: number | null;
+  prioridad_nombre?: string | null;
 }
 
 export interface ClienteRemitente {

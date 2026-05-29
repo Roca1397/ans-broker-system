@@ -143,23 +143,45 @@ async def admin_eliminar_aseguradora(item_id: int, db: AsyncSession = Depends(ge
 # CLIENTES
 # ════════════════════════════════════════════════════════════════════
 
+def _to_cliente_out(obj: Cliente) -> dict:
+    return {
+        "id": obj.id,
+        "nombre": obj.nombre,
+        "contacto": obj.contacto,
+        "direccion": obj.direccion,
+        "activo": obj.activo,
+        "prioridad_id": obj.prioridad_id,
+        "prioridad_nombre": obj.prioridad_rel.nombre if obj.prioridad_rel else None,
+    }
+
+
 @router.get("/clientes", response_model=List[ClienteOut], tags=["Admin · clientes"])
 async def admin_listar_clientes(db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
-    result = await db.execute(select(Cliente).order_by(Cliente.nombre))
-    return result.scalars().all()
+    result = await db.execute(
+        select(Cliente).options(selectinload(Cliente.prioridad_rel)).order_by(Cliente.nombre)
+    )
+    return [_to_cliente_out(o) for o in result.scalars().all()]
 
 
 @router.post("/clientes", response_model=ClienteOut, tags=["Admin · clientes"])
 async def admin_crear_cliente(data: ClienteCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
-    obj = Cliente(nombre=data.nombre, contacto=data.contacto, direccion=data.direccion, activo=data.activo)
+    obj = Cliente(
+        nombre=data.nombre,
+        contacto=data.contacto,
+        direccion=data.direccion,
+        activo=data.activo,
+        prioridad_id=data.prioridad_id,
+    )
     db.add(obj)
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, f"Ya existe un cliente con nombre '{data.nombre}'")
-    await db.refresh(obj)
-    return obj
+    result = await db.execute(
+        select(Cliente).options(selectinload(Cliente.prioridad_rel)).where(Cliente.id == obj.id)
+    )
+    return _to_cliente_out(result.scalar_one())
 
 
 @router.patch("/clientes/{item_id}", response_model=ClienteOut, tags=["Admin · clientes"])
@@ -171,8 +193,10 @@ async def admin_actualizar_cliente(item_id: int, data: ClienteUpdate, db: AsyncS
     for k, v in payload.items():
         setattr(obj, k, v)
     await db.commit()
-    await db.refresh(obj)
-    return obj
+    result = await db.execute(
+        select(Cliente).options(selectinload(Cliente.prioridad_rel)).where(Cliente.id == item_id)
+    )
+    return _to_cliente_out(result.scalar_one())
 
 
 @router.delete("/clientes/{item_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Admin · clientes"])

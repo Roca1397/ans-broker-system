@@ -119,9 +119,11 @@ class Cliente(Base):
     contacto = Column(String(255), nullable=True)
     direccion = Column(Text, nullable=True)
     activo = Column(Boolean, default=True)
+    prioridad_id = Column(Integer, ForeignKey("prioridades.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
+    prioridad_rel = relationship("Prioridad")
     asociaciones = relationship("ClienteRemitente", back_populates="cliente_rel")
 
 
