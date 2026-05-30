@@ -130,6 +130,7 @@ import {
               <th>Ejecutivo</th>
               <th>Aseguradora</th>
               <th>Ramo</th>
+              <th>Remitente</th>
               <th>Recepción</th>
               <th class="col-asunto">Asunto</th>
               <th class="col-adj"></th>
@@ -152,6 +153,7 @@ import {
               <td class="cell-nowrap">{{ s.ejecutivo || '—' }}</td>
               <td class="cell-nowrap">{{ s.aseguradora || '—' }}</td>
               <td>{{ s.ramo || '—' }}</td>
+              <td class="cell-nowrap">{{ s.remitente || '—' }}</td>
               <td class="cell-date"><small>{{ formatDateShort(s.fecha_recepcion) || '—' }}</small></td>
               <td class="cell-truncate">{{ s.asunto }}</td>
               <td class="cell-center">
@@ -160,7 +162,7 @@ import {
               <td><span class="open-arrow">›</span></td>
             </tr>
             <tr *ngIf="solicitudes().length === 0">
-              <td colspan="12">
+              <td colspan="13">
                 <div class="empty-state">
                   <div class="empty-icon">📭</div>
                   <h3>No hay solicitudes</h3>
