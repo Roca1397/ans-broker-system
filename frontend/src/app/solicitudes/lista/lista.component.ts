@@ -127,6 +127,7 @@ import {
               <th>Tipo</th>
               <th>Estado</th>
               <th>Prioridad</th>
+              <th class="cell-center">Nro. Atenciones</th>
               <th>Ejecutivo</th>
               <th>Aseguradora</th>
               <th>Ramo</th>
@@ -150,6 +151,7 @@ import {
                 <span *ngIf="s.prioridad" class="pill" [class]="prioridadClass(s.prioridad)">{{ s.prioridad }}</span>
                 <span *ngIf="!s.prioridad" class="muted-dash">—</span>
               </td>
+              <td class="cell-center"><span class="font-mono">{{ s.nro_atenciones ?? 1 }}</span></td>
               <td class="cell-nowrap">{{ s.ejecutivo || '—' }}</td>
               <td class="cell-nowrap">{{ s.aseguradora || '—' }}</td>
               <td>{{ s.ramo || '—' }}</td>
@@ -162,7 +164,7 @@ import {
               <td><span class="open-arrow">›</span></td>
             </tr>
             <tr *ngIf="solicitudes().length === 0">
-              <td colspan="13">
+              <td colspan="14">
                 <div class="empty-state">
                   <div class="empty-icon">📭</div>
                   <h3>No hay solicitudes</h3>
@@ -279,6 +281,11 @@ import {
                 </select>
               </div>
 
+              <div class="field">
+                <label class="field-label">Nro. Atenciones</label>
+                <input type="number" [(ngModel)]="editForm.nro_atenciones" min="1" step="1" placeholder="1" />
+              </div>
+
               <!-- Solo el administrador puede cambiar el ejecutivo asignado -->
               <div class="field field-full" *ngIf="auth.isAdmin()">
                 <label class="field-label">Ejecutivo asignado</label>
@@ -305,15 +312,6 @@ import {
             <div class="field field-full" style="margin-top: 10px;">
               <label class="field-label">Cuerpo del correo</label>
               <textarea [(ngModel)]="editForm.cuerpo_correo" rows="5" placeholder="Cuerpo del correo..."></textarea>
-            </div>
-          </section>
-
-          <!-- Operaciones -->
-          <section class="detail-section">
-            <h4 class="section-title">Operaciones</h4>
-            <div class="field">
-              <label class="field-label">Número de atenciones</label>
-              <input type="number" [(ngModel)]="editForm.nro_atenciones" min="1" step="1" placeholder="1" />
             </div>
           </section>
 
