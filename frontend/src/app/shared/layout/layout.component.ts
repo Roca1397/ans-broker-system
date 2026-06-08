@@ -236,7 +236,7 @@ import { AlertasService } from '../../services/api.service';
               </div>
               <div>
                 <p>{{ a.mensaje }}</p>
-                <small>{{ a.numero_solicitud }}</small>
+                <small>{{ a.nro_ticket }}</small>
               </div>
             </div>
             <div *ngIf="alertas.length === 0" class="empty-state" style="padding: 30px">

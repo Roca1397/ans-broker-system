@@ -215,35 +215,11 @@ class ClienteRemitenteOut(BaseModel):
 
 
 # ── SOLICITUDES (legado) ──────────────────────────────────────────
-class SolicitudCreate(BaseModel):
-    fecha_ingreso: datetime
-    tipo_operacion_id: int
-    aseguradora_id: int
-    cantidad_asegurados: int = Field(..., gt=0)
-    tiempo_estimado_atencion: float = Field(..., gt=0)
-    fecha_esperada_atencion: datetime
-    observaciones: Optional[str] = None
-
-    @field_validator("fecha_esperada_atencion")
-    @classmethod
-    def fecha_esperada_after_ingreso(cls, v, info):
-        if "fecha_ingreso" in info.data and v <= info.data["fecha_ingreso"]:
-            raise ValueError("La fecha esperada debe ser posterior a la fecha de ingreso")
-        return v
-
-
 class SolicitudOut(BaseModel):
     id: UUID
-    numero_solicitud: Optional[str] = None
     nro_ticket: Optional[str] = None
-    fecha_ingreso: Optional[datetime] = None
-    tipo_operacion_id: Optional[int] = None
     aseguradora_id: Optional[int] = None
-    cantidad_asegurados: Optional[int] = None
-    tiempo_estimado_atencion: Optional[float] = None
-    fecha_esperada_atencion: Optional[datetime] = None
     estado: str
-    observaciones: Optional[str] = None
     fuente: str
     created_at: datetime
 
@@ -360,14 +336,9 @@ class OutlookSolicitudOut(BaseModel):
 # ── PREDICCIONES (legado) ─────────────────────────────────────────
 class PredictionRequest(BaseModel):
     solicitud_id: Optional[str] = None
-    fecha_ingreso: datetime
-    tipo_operacion_id: int
-    aseguradora_id: int
-    cantidad_asegurados: int
-    tiempo_estimado_atencion: float
-    fecha_esperada_atencion: datetime
-    ans_horas_limite: Optional[float] = 48.0
-    peso_complejidad: Optional[float] = 1.0
+    asunto: Optional[str] = None
+    cuerpo: Optional[str] = None
+    prioridad_nombre: Optional[str] = None
 
 
 class PredictionResponse(BaseModel):
@@ -382,21 +353,16 @@ class PredictionResponse(BaseModel):
 
 class SolicitudConPrediccionOut(BaseModel):
     id: UUID
-    numero_solicitud: Optional[str] = None
-    fecha_ingreso: Optional[datetime] = None
-    fecha_esperada_atencion: Optional[datetime] = None
-    cantidad_asegurados: Optional[int] = None
-    tiempo_estimado_atencion: Optional[float] = None
+    nro_ticket: Optional[str] = None
+    cliente: Optional[str] = None
     estado: str
     fuente: str
-    tipo_operacion: Optional[str]
-    aseguradora: Optional[str]
-    ans_horas_limite: Optional[int]
-    usuario_nombre: Optional[str]
-    cumple_ans: Optional[bool]
-    probabilidad_riesgo: Optional[float]
-    nivel_riesgo: Optional[str]
-    prediccion_fecha: Optional[datetime]
+    aseguradora: Optional[str] = None
+    ans_horas_limite: Optional[int] = None
+    cumple_ans: Optional[bool] = None
+    probabilidad_riesgo: Optional[float] = None
+    nivel_riesgo: Optional[str] = None
+    prediccion_fecha: Optional[datetime] = None
 
     class Config:
         from_attributes = True

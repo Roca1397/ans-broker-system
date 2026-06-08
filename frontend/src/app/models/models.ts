@@ -65,16 +65,9 @@ export interface ClienteRemitente {
 // ── Solicitudes (legado) ───────────────────────────────────
 export interface Solicitud {
   id: string;
-  numero_solicitud?: string;
   nro_ticket?: string;
-  fecha_ingreso?: string;
-  tipo_operacion_id?: number;
   aseguradora_id?: number;
-  cantidad_asegurados?: number;
-  tiempo_estimado_atencion?: number;
-  fecha_esperada_atencion?: string;
   estado: string;
-  observaciones?: string;
   fuente: string;
   created_at: string;
 }
@@ -156,17 +149,12 @@ export interface Prediccion {
 
 export interface SolicitudConPrediccion {
   id: string;
-  numero_solicitud?: string;
-  fecha_ingreso?: string;
-  fecha_esperada_atencion?: string;
-  cantidad_asegurados?: number;
-  tiempo_estimado_atencion?: number;
+  nro_ticket?: string;
+  cliente?: string;
   estado: string;
   fuente: string;
-  tipo_operacion?: string;
   aseguradora?: string;
   ans_horas_limite?: number;
-  usuario_nombre?: string;
   cumple_ans?: boolean;
   probabilidad_riesgo?: number;
   nivel_riesgo?: string;
@@ -195,7 +183,7 @@ export interface Alerta {
   mensaje: string;
   leida: boolean;
   created_at: string;
-  numero_solicitud?: string;
+  nro_ticket?: string;
   solicitud_id: string;
 }
 

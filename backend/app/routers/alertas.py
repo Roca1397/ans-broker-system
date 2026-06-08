@@ -39,7 +39,7 @@ async def get_alertas(
             "mensaje": a.mensaje,
             "leida": a.leida,
             "created_at": a.created_at,
-            "numero_solicitud": a.solicitud.numero_solicitud if a.solicitud else None,
+            "nro_ticket": a.solicitud.nro_ticket if a.solicitud else None,
             "solicitud_id": str(a.solicitud_id),
         }
         for a in items

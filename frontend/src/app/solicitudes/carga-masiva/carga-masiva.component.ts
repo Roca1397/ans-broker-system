@@ -179,13 +179,12 @@ export class CargaMasivaComponent {
   result: BulkUploadResult | null = null;
 
   requiredColumns = [
-    { name: 'fecha_ingreso',             desc: 'Fecha/hora de ingreso',          required: true },
-    { name: 'tipo_operacion_id',         desc: 'ID del tipo de operación',        required: true },
-    { name: 'aseguradora_id',            desc: 'ID de la aseguradora',            required: true },
-    { name: 'cantidad_asegurados',       desc: 'Número de asegurados',            required: true },
-    { name: 'tiempo_estimado_atencion',  desc: 'Tiempo estimado en horas',        required: true },
-    { name: 'fecha_esperada_atencion',   desc: 'Fecha/hora esperada de atención', required: true },
-    { name: 'observaciones',             desc: 'Notas adicionales',               required: false },
+    { name: 'asunto',          desc: 'Asunto del correo o descripción breve', required: true },
+    { name: 'remitente',       desc: 'Correo del remitente',                  required: false },
+    { name: 'cliente',         desc: 'Nombre del cliente',                    required: false },
+    { name: 'aseguradora_id',  desc: 'ID de la aseguradora',                  required: false },
+    { name: 'fecha_recepcion', desc: 'Fecha/hora de recepción (ISO)',          required: false },
+    { name: 'comentarios',     desc: 'Notas adicionales',                     required: false },
   ];
 
   constructor(private service: SolicitudesService) {}

@@ -4,7 +4,7 @@ from sqlalchemy import select, func, text
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.solicitud import Solicitud, PrediccionANS, Aseguradora, TipoOperacion, Alerta
+from app.models.solicitud import Solicitud, PrediccionANS, Aseguradora, TipoSolicitud, Alerta
 from app.models.user import User
 
 router = APIRouter()
@@ -49,11 +49,11 @@ async def get_dashboard_stats(
     )
     por_aseguradora = [{"nombre": r[0], "total": r[1]} for r in por_aseg_q]
 
-    # Por tipo de operación
+    # Por tipo de solicitud
     por_tipo_q = await db.execute(
-        select(TipoOperacion.nombre, func.count(Solicitud.id).label("total"))
-        .join(Solicitud, Solicitud.tipo_operacion_id == TipoOperacion.id, isouter=True)
-        .group_by(TipoOperacion.nombre)
+        select(TipoSolicitud.nombre, func.count(Solicitud.id).label("total"))
+        .join(Solicitud, Solicitud.tipo_solicitud_id == TipoSolicitud.id, isouter=True)
+        .group_by(TipoSolicitud.nombre)
         .order_by(func.count(Solicitud.id).desc())
         .limit(8)
     )

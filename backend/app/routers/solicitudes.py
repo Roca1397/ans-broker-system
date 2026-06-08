@@ -41,12 +41,12 @@ from app.core.security import get_current_user, get_current_admin
 from app.core.api_key import verify_api_key
 from app.core.config import settings
 from app.models.solicitud import (
-    Solicitud, Aseguradora, TipoOperacion, PrediccionANS, Alerta,
+    Solicitud, Aseguradora,
     TipoSolicitud, EstadoSolicitud, Prioridad, Ramo,
 )
 from app.models.user import User
 from app.schemas.schemas import (
-    SolicitudCreate, SolicitudOut, BulkUploadResult, PaginatedResponse,
+    SolicitudOut, BulkUploadResult, PaginatedResponse,
     OutlookSolicitudIn, OutlookSolicitudOut,
     SolicitudUpdate, SolicitudCreateManual,
     ComentarioAdd,
@@ -65,12 +65,6 @@ router = APIRouter()
 # ════════════════════════════════════════════════════════════════════
 # Helpers
 # ════════════════════════════════════════════════════════════════════
-
-def generar_numero_solicitud_legacy() -> str:
-    """Identificador legado SOL-YYYYMMDD-XXXXXX (compatibilidad bulk-upload)."""
-    now = datetime.now(timezone.utc)
-    return f"SOL-{now.strftime('%Y%m%d')}-{str(uuid.uuid4())[:6].upper()}"
-
 
 def _strip_html(text: str | None, maxlen: int = 200) -> str | None:
     if not text:
@@ -674,7 +668,7 @@ async def eliminar_solicitud(
 async def crear_solicitud_manual(
     data: SolicitudCreateManual,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(get_current_user),
 ):
     nro_ticket = await generar_nro_ticket(db)
     estado_id = data.estado_id or await resolver_estado_pendiente_id(db)
@@ -712,7 +706,6 @@ async def crear_solicitud_manual(
         prediccion=pred["prediccion"],
         estado="Pendiente",
         fuente="manual",
-        usuario_id=current_user.id,
     )
     db.add(sol)
     await db.commit()
@@ -726,70 +719,8 @@ async def crear_solicitud_manual(
 
 
 # ════════════════════════════════════════════════════════════════════
-# ENDPOINTS LEGADOS (preservados)
+# ENDPOINTS LEGADOS (preservados — simplificados)
 # ════════════════════════════════════════════════════════════════════
-
-async def _crear_prediccion_legacy(db, solicitud, aseguradora, tipo_op, current_user):
-    pred_data = {
-        "fecha_ingreso": solicitud.fecha_ingreso.isoformat(),
-        "fecha_esperada_atencion": solicitud.fecha_esperada_atencion.isoformat(),
-        "cantidad_asegurados": solicitud.cantidad_asegurados,
-        "tiempo_estimado_atencion": solicitud.tiempo_estimado_atencion,
-        "ans_horas_limite": aseguradora.ans_horas_limite if aseguradora else 48.0,
-        "peso_complejidad": tipo_op.peso_complejidad if tipo_op else 1.0,
-        "tipo_operacion_id": solicitud.tipo_operacion_id,
-        "aseguradora_id": solicitud.aseguradora_id,
-    }
-    result = predictor.predict(pred_data)
-
-    prediccion = PrediccionANS(
-        solicitud_id=solicitud.id,
-        cumple_ans=result["cumple_ans"],
-        probabilidad_riesgo=result["probabilidad_riesgo"],
-        nivel_riesgo=result["nivel_riesgo"],
-        features_input=pred_data,
-        modelo_version=result["modelo_version"],
-        tiempo_prediccion_ms=result["tiempo_prediccion_ms"],
-    )
-    db.add(prediccion)
-
-    if result["nivel_riesgo"] in ("alto", "critico"):
-        alerta = Alerta(
-            solicitud_id=solicitud.id,
-            tipo="alto_riesgo" if result["nivel_riesgo"] == "alto" else "critico",
-            mensaje=result["mensaje"],
-            usuario_id=current_user.id,
-        )
-        db.add(alerta)
-
-
-@router.post("/", response_model=SolicitudOut, status_code=status.HTTP_201_CREATED)
-async def crear_solicitud_legacy(
-    data: SolicitudCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    aseg = (await db.execute(select(Aseguradora).where(Aseguradora.id == data.aseguradora_id))).scalar_one_or_none()
-    if not aseg:
-        raise HTTPException(404, "Aseguradora no encontrada")
-    tipo_op = (await db.execute(select(TipoOperacion).where(TipoOperacion.id == data.tipo_operacion_id))).scalar_one_or_none()
-    if not tipo_op:
-        raise HTTPException(404, "Tipo de operación no encontrado")
-
-    solicitud = Solicitud(
-        numero_solicitud=generar_numero_solicitud_legacy(),
-        nro_ticket=await generar_nro_ticket(db),
-        usuario_id=current_user.id,
-        fuente="manual",
-        estado="Pendiente",
-        **data.model_dump(),
-    )
-    db.add(solicitud)
-    await db.flush()
-    await _crear_prediccion_legacy(db, solicitud, aseg, tipo_op, current_user)
-    await db.commit()
-    await db.refresh(solicitud)
-    return solicitud
 
 
 @router.get("/", response_model=PaginatedResponse)
@@ -804,7 +735,6 @@ async def listar_solicitudes_legacy(
 ):
     query = select(Solicitud).options(
         selectinload(Solicitud.aseguradora),
-        selectinload(Solicitud.tipo_operacion),
     ).order_by(desc(Solicitud.created_at))
 
     if current_user.role == "ejecutivo":
@@ -815,10 +745,7 @@ async def listar_solicitudes_legacy(
     if aseguradora_id:
         query = query.where(Solicitud.aseguradora_id == aseguradora_id)
     if search:
-        query = query.where(or_(
-            Solicitud.numero_solicitud.ilike(f"%{search}%"),
-            Solicitud.nro_ticket.ilike(f"%{search}%"),
-        ))
+        query = query.where(Solicitud.nro_ticket.ilike(f"%{search}%"))
 
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar() or 0
@@ -840,7 +767,6 @@ async def obtener_solicitud_legacy(
     result = await db.execute(
         select(Solicitud).options(
             selectinload(Solicitud.aseguradora),
-            selectinload(Solicitud.tipo_operacion),
             selectinload(Solicitud.tipo_solicitud),
             selectinload(Solicitud.ramo),
             selectinload(Solicitud.estado_rel),
@@ -859,7 +785,7 @@ async def obtener_solicitud_legacy(
 async def carga_masiva(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    _: User = Depends(get_current_user),
 ):
     if not file.filename.endswith((".xlsx", ".xls", ".csv")):
         raise HTTPException(400, "Formato no soportado. Use .xlsx, .xls o .csv")
@@ -873,52 +799,58 @@ async def carga_masiva(
     except Exception as e:
         raise HTTPException(400, f"Error al leer el archivo: {str(e)}")
 
-    required_cols = {
-        "fecha_ingreso", "tipo_operacion_id", "aseguradora_id",
-        "cantidad_asegurados", "tiempo_estimado_atencion", "fecha_esperada_atencion"
-    }
+    required_cols = {"asunto"}
     missing = required_cols - set(df.columns)
     if missing:
         raise HTTPException(400, f"Columnas faltantes: {missing}")
 
     exitosos, errores, detalles = 0, 0, []
     aseg_cache = {a.id: a for a in (await db.execute(select(Aseguradora))).scalars().all()}
-    tipo_cache = {t.id: t for t in (await db.execute(select(TipoOperacion))).scalars().all()}
 
     for idx, row in df.iterrows():
         try:
-            fecha_ingreso = pd.to_datetime(row["fecha_ingreso"]).to_pydatetime()
-            fecha_esperada = pd.to_datetime(row["fecha_esperada_atencion"]).to_pydatetime()
-            if fecha_ingreso.tzinfo is None:
-                fecha_ingreso = fecha_ingreso.replace(tzinfo=timezone.utc)
-            if fecha_esperada.tzinfo is None:
-                fecha_esperada = fecha_esperada.replace(tzinfo=timezone.utc)
+            asunto = str(row.get("asunto", "")).strip()
+            if not asunto:
+                raise ValueError("El campo 'asunto' no puede estar vacío")
 
-            aseg_id = int(row["aseguradora_id"])
-            tipo_id = int(row["tipo_operacion_id"])
+            remitente = str(row.get("remitente", "")).strip() or None
+            cliente = str(row.get("cliente", "")).strip() or None
+            comentarios = str(row.get("comentarios", "")).strip() or None
 
-            if aseg_id not in aseg_cache:
-                raise ValueError(f"Aseguradora ID {aseg_id} no existe")
-            if tipo_id not in tipo_cache:
-                raise ValueError(f"Tipo operación ID {tipo_id} no existe")
+            aseg_id = None
+            if "aseguradora_id" in df.columns and pd.notna(row.get("aseguradora_id")):
+                aseg_id = int(row["aseguradora_id"])
+                if aseg_id not in aseg_cache:
+                    raise ValueError(f"Aseguradora ID {aseg_id} no existe")
+
+            fecha_recepcion = None
+            if "fecha_recepcion" in df.columns and pd.notna(row.get("fecha_recepcion")):
+                fecha_recepcion = pd.to_datetime(row["fecha_recepcion"]).to_pydatetime()
+                if fecha_recepcion.tzinfo is None:
+                    fecha_recepcion = fecha_recepcion.replace(tzinfo=timezone.utc)
+
+            if remitente and not cliente:
+                cli_auto, aseg_auto, _ = await resolver_cliente_por_remitente(db, remitente)
+                cliente = cli_auto
+                aseg_id = aseg_id or aseg_auto
+
+            pred = predictor.predict_simple(asunto=asunto, cuerpo=comentarios or "")
 
             solicitud = Solicitud(
-                numero_solicitud=generar_numero_solicitud_legacy(),
                 nro_ticket=await generar_nro_ticket(db),
-                fecha_ingreso=fecha_ingreso,
-                tipo_operacion_id=tipo_id,
+                asunto=asunto,
+                remitente=remitente,
+                cliente=cliente or "Pendiente de asignar",
                 aseguradora_id=aseg_id,
-                cantidad_asegurados=int(row["cantidad_asegurados"]),
-                tiempo_estimado_atencion=float(row["tiempo_estimado_atencion"]),
-                fecha_esperada_atencion=fecha_esperada,
-                usuario_id=current_user.id,
-                observaciones=str(row.get("observaciones", "")) or None,
+                comentarios=comentarios,
+                fecha_recepcion=fecha_recepcion or datetime.now(timezone.utc),
+                probabilidad=pred["probabilidad"],
+                prediccion=pred["prediccion"],
                 fuente="excel" if not file.filename.endswith(".csv") else "csv",
                 estado="Pendiente",
             )
             db.add(solicitud)
             await db.flush()
-            await _crear_prediccion_legacy(db, solicitud, aseg_cache[aseg_id], tipo_cache[tipo_id], current_user)
             exitosos += 1
         except Exception as e:
             errores += 1

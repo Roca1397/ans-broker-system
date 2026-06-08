@@ -55,8 +55,6 @@ class TipoOperacion(Base):
     peso_complejidad = Column(Float, default=1.0)
     is_active = Column(Boolean, default=True)
 
-    solicitudes = relationship("Solicitud", back_populates="tipo_operacion")
-
 
 class TipoSolicitud(Base):
     """Nuevo catálogo: Inclusión, Exclusión, Renovación, Emisión..."""
@@ -163,7 +161,6 @@ class Solicitud(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # ── Identificadores ────────────────────────────────────────────
-    numero_solicitud = Column(String(50), unique=True, nullable=True)  # legado
     nro_ticket = Column(String(20), unique=True, nullable=True, index=True)  # NT2026001
 
     # ── Datos del cliente / remitente ──────────────────────────────
@@ -196,26 +193,15 @@ class Solicitud(Base):
     # ── Comentarios ────────────────────────────────────────────────
     comentarios = Column(Text, nullable=True)
 
-    # ── Campos legados ─────────────────────────────────────────────
-    fecha_ingreso = Column(DateTime(timezone=True), nullable=True)
-    tipo_operacion_id = Column(Integer, ForeignKey("tipos_operacion.id"), nullable=True)
-    cantidad_asegurados = Column(Integer, nullable=True)
-    tiempo_estimado_atencion = Column(Float, nullable=True)
-    fecha_esperada_atencion = Column(DateTime(timezone=True), nullable=True)
-    observaciones = Column(Text, nullable=True)
-
     # ── Trazabilidad ───────────────────────────────────────────────
     fuente = Column(String(50), default="manual")
-    usuario_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     ejecutivo_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     # ── Relaciones ─────────────────────────────────────────────────
-    usuario = relationship("User", foreign_keys=[usuario_id], back_populates="solicitudes")
     ejecutivo_rel = relationship("User", foreign_keys=[ejecutivo_id])
     aseguradora = relationship("Aseguradora", back_populates="solicitudes")
-    tipo_operacion = relationship("TipoOperacion", back_populates="solicitudes")
     tipo_solicitud = relationship("TipoSolicitud", back_populates="solicitudes")
     ramo = relationship("Ramo", back_populates="solicitudes")
     estado_rel = relationship("EstadoSolicitud", foreign_keys=[estado_id])

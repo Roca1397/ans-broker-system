@@ -22,9 +22,9 @@ import { SolicitudConPrediccion } from '../../models/models';
     <div *ngFor="let s of criticos" class="alert alert-critical" style="margin-bottom: 12px;">
       <span>🚨</span>
       <div>
-        <strong>CRÍTICO — {{ s.numero_solicitud }}</strong>
+        <strong>CRÍTICO — {{ s.nro_ticket }}</strong>
         Solicitud de {{ s.aseguradora }} con {{ (s.probabilidad_riesgo! * 100).toFixed(1) }}% de probabilidad de incumplimiento ANS.
-        Asegurados: {{ s.cantidad_asegurados }} · Vence: {{ formatDate(s.fecha_esperada_atencion || '') }}
+        Cliente: {{ s.cliente || '—' }}
       </div>
     </div>
 
@@ -58,11 +58,9 @@ import { SolicitudConPrediccion } from '../../models/models';
         <table>
           <thead>
             <tr>
-              <th>N° Solicitud</th>
+              <th>N° Ticket</th>
+              <th>Cliente</th>
               <th>Aseguradora</th>
-              <th>Operación</th>
-              <th>Asegurados</th>
-              <th>T. Estimado</th>
               <th>Límite ANS</th>
               <th>Resultado ANS</th>
               <th>Prob. Riesgo</th>
@@ -74,12 +72,10 @@ import { SolicitudConPrediccion } from '../../models/models';
           <tbody>
             <tr *ngFor="let s of filtered" [class]="getRowClass(s)">
               <td>
-                <span class="font-mono" style="font-size:0.8rem;color:var(--primary)">{{ s.numero_solicitud }}</span>
+                <span class="font-mono" style="font-size:0.8rem;color:var(--primary)">{{ s.nro_ticket || '—' }}</span>
               </td>
+              <td style="font-size:0.82rem">{{ s.cliente || '—' }}</td>
               <td style="font-size:0.82rem">{{ s.aseguradora || '—' }}</td>
-              <td style="font-size:0.82rem;color:var(--text-secondary)">{{ s.tipo_operacion || '—' }}</td>
-              <td><span class="font-mono">{{ s.cantidad_asegurados }}</span></td>
-              <td><span class="font-mono">{{ s.tiempo_estimado_atencion }}h</span></td>
               <td>
                 <span class="font-mono" style="font-size:0.8rem;color:var(--text-muted)">
                   {{ s.ans_horas_limite ? s.ans_horas_limite + 'h' : '—' }}
@@ -116,7 +112,7 @@ import { SolicitudConPrediccion } from '../../models/models';
               </td>
             </tr>
             <tr *ngIf="filtered.length === 0">
-              <td colspan="11">
+              <td colspan="9">
                 <div class="empty-state">
                   <div class="empty-icon">◎</div>
                   <h3>Sin resultados</h3>
