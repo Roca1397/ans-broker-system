@@ -308,6 +308,15 @@ import {
             </div>
           </section>
 
+          <!-- Operaciones -->
+          <section class="detail-section">
+            <h4 class="section-title">Operaciones</h4>
+            <div class="field">
+              <label class="field-label">Número de atenciones</label>
+              <input type="number" [(ngModel)]="editForm.nro_atenciones" min="1" step="1" placeholder="1" />
+            </div>
+          </section>
+
           <!-- ── Predicción ANS ─────────────────────────────────── -->
           <div class="pred-block" [class]="predClass(selectedDetail()!.probabilidad)">
             <div class="pred-left">
@@ -794,6 +803,7 @@ export class ListaSolicitudesComponent implements OnInit {
             ? this.toLocalDatetimeInput(d.fecha_finalizado)
             : '',
           ejecutivo_id:      d.ejecutivo_id ?? null,
+          nro_atenciones:    d.nro_atenciones ?? 1,
         };
         this.newComment = '';
       },
@@ -827,6 +837,7 @@ export class ListaSolicitudesComponent implements OnInit {
       fecha_finalizado:  raw.fecha_finalizado
         ? new Date(raw.fecha_finalizado).toISOString()
         : null,
+      nro_atenciones: raw.nro_atenciones ? Math.max(1, parseInt(raw.nro_atenciones, 10)) : null,
       ...(this.auth.isAdmin() ? { ejecutivo_id: raw.ejecutivo_id || null } : {}),
     };
 

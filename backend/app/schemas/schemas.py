@@ -246,6 +246,7 @@ class SolicitudListItem(BaseModel):
     tiene_adjuntos: bool = False
     fuente: Optional[str] = None
     ejecutivo: Optional[str] = None
+    nro_atenciones: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -276,6 +277,7 @@ class SolicitudUpdate(BaseModel):
     asunto: Optional[str] = None
     cuerpo_correo: Optional[str] = None
     ejecutivo_id: Optional[UUID] = None
+    nro_atenciones: Optional[int] = Field(default=None, ge=1)
 
 
 class SolicitudCreateManual(BaseModel):
@@ -290,6 +292,7 @@ class SolicitudCreateManual(BaseModel):
     cuerpo_correo: Optional[str] = None
     fecha_recepcion: Optional[datetime] = None
     comentarios: Optional[str] = None
+    nro_atenciones: Optional[int] = Field(default=1, ge=1)
 
 
 # ── ENTRADA POWER AUTOMATE / OUTLOOK ──────────────────────────────
@@ -318,6 +321,7 @@ class OutlookSolicitudIn(BaseModel):
     adjuntos: Optional[List[AdjuntoIn]] = []
     eml_base64: Optional[Union[str, dict, Any]] = None
     eml_filename: Optional[str] = None
+    nro_atenciones: Optional[int] = Field(default=1, ge=1)
 
 
 class OutlookSolicitudOut(BaseModel):

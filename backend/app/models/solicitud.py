@@ -193,6 +193,9 @@ class Solicitud(Base):
     # ── Comentarios ────────────────────────────────────────────────
     comentarios = Column(Text, nullable=True)
 
+    # ── Operaciones ────────────────────────────────────────────────
+    nro_atenciones = Column(Integer, default=1, nullable=True)
+
     # ── Trazabilidad ───────────────────────────────────────────────
     fuente = Column(String(50), default="manual")
     ejecutivo_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

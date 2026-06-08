@@ -68,6 +68,10 @@ import { Aseguradora, CatalogoItem } from '../../models/models';
             <label>Fecha de Recepción</label>
             <input type="datetime-local" formControlName="fecha_recepcion" />
           </div>
+          <div class="field">
+            <label>Número de atenciones</label>
+            <input type="number" formControlName="nro_atenciones" min="1" step="1" placeholder="1" />
+          </div>
         </div>
 
         <div class="field full-width" style="margin-top: 12px;">
@@ -135,6 +139,7 @@ export class NuevaSolicitudComponent implements OnInit {
       fecha_recepcion: [nowStr],
       cuerpo_correo: [null],
       comentarios: [null],
+      nro_atenciones: [1],
     });
   }
 
@@ -163,6 +168,7 @@ export class NuevaSolicitudComponent implements OnInit {
       cuerpo_correo: v.cuerpo_correo || null,
       comentarios: v.comentarios || null,
       fecha_recepcion: v.fecha_recepcion ? new Date(v.fecha_recepcion).toISOString() : null,
+      nro_atenciones: v.nro_atenciones ? Math.max(1, parseInt(v.nro_atenciones, 10)) : 1,
     };
 
     this.solicitudesService.crearManual(payload).subscribe({

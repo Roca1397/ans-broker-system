@@ -94,6 +94,7 @@ def _solicitud_to_list_item(s: Solicitud) -> dict:
         "tiene_adjuntos": bool(s.datos_adjuntos),
         "fuente": s.fuente,
         "ejecutivo": s.ejecutivo_rel.full_name if s.ejecutivo_rel else None,
+        "nro_atenciones": s.nro_atenciones,
         "created_at": s.created_at,
     }
 
@@ -208,6 +209,7 @@ async def crear_desde_outlook(
         prediccion=pred["prediccion"],
         estado="Pendiente",
         fuente="outlook",
+        nro_atenciones=payload.nro_atenciones or 1,
     )
     db.add(solicitud)
     await db.commit()
@@ -706,6 +708,7 @@ async def crear_solicitud_manual(
         prediccion=pred["prediccion"],
         estado="Pendiente",
         fuente="manual",
+        nro_atenciones=data.nro_atenciones or 1,
     )
     db.add(sol)
     await db.commit()
@@ -834,6 +837,11 @@ async def carga_masiva(
                 cliente = cli_auto
                 aseg_id = aseg_id or aseg_auto
 
+            nro_atenciones = 1
+            if "nro_atenciones" in df.columns and pd.notna(row.get("nro_atenciones")):
+                val = int(row["nro_atenciones"])
+                nro_atenciones = max(1, val)
+
             pred = predictor.predict_simple(asunto=asunto, cuerpo=comentarios or "")
 
             solicitud = Solicitud(
@@ -848,6 +856,7 @@ async def carga_masiva(
                 prediccion=pred["prediccion"],
                 fuente="excel" if not file.filename.endswith(".csv") else "csv",
                 estado="Pendiente",
+                nro_atenciones=nro_atenciones,
             )
             db.add(solicitud)
             await db.flush()

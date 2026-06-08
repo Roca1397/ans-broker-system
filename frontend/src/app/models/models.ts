@@ -98,6 +98,7 @@ export interface SolicitudListItem {
   tiene_adjuntos: boolean;
   fuente?: string;
   ejecutivo?: string;
+  nro_atenciones?: number | null;
   created_at: string;
 }
 
@@ -134,6 +135,7 @@ export interface SolicitudUpdate {
   asunto?: string;
   cuerpo_correo?: string;
   ejecutivo_id?: string | null;
+  nro_atenciones?: number | null;
 }
 
 // ── Predicciones ───────────────────────────────────────────
