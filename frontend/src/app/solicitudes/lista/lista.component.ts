@@ -29,7 +29,7 @@ const ALL_COLUMNS = [
   { key: 'asunto',         label: 'Asunto' },
   { key: 'prediccion',     label: 'Predicción ANS' },
   { key: 'probabilidad',   label: 'Probabilidad incumplimiento' },
-  { key: 'fecha_limite',   label: 'Fecha límite' },
+  { key: 'fecha_limite',   label: 'Fecha de atención' },
   { key: 'fecha_envio',    label: 'Fecha envío aseguradora' },
   { key: 'adjuntos',       label: 'Adjuntos' },
 ];
@@ -193,7 +193,7 @@ const ALL_COLUMNS = [
               <th *ngIf="col('asunto')" class="col-asunto">Asunto</th>
               <th *ngIf="col('prediccion')">Predicción ANS</th>
               <th *ngIf="col('probabilidad')">Probabilidad</th>
-              <th *ngIf="col('fecha_limite')">Fecha límite</th>
+              <th *ngIf="col('fecha_limite')">Fecha de atención</th>
               <th *ngIf="col('fecha_envio')">Envío aseguradora</th>
               <th *ngIf="col('adjuntos')" class="col-adj"></th>
               <th class="col-open"></th>
