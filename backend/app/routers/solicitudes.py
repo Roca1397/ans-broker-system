@@ -52,6 +52,8 @@ from app.schemas.schemas import (
     ComentarioAdd,
 )
 from app.ml.predictor import predictor
+from app.services.prediction_service import predecir_ans, is_loaded as rf_loaded
+from app.models.solicitud import PrediccionANS
 from app.services.outlook_service import (
     generar_nro_ticket, resolver_tipo_solicitud_id,
     resolver_cliente_por_remitente, resolver_prioridad_id,
@@ -60,6 +62,105 @@ from app.services.outlook_service import (
 )
 
 router = APIRouter()
+
+
+# ════════════════════════════════════════════════════════════════════
+# Helper ML
+# ════════════════════════════════════════════════════════════════════
+
+async def _predecir_con_rf(
+    db: AsyncSession,
+    tipo_solicitud_id: Optional[int],
+    prioridad_id: Optional[int],
+    aseguradora_id: Optional[int],
+    ramo_id: Optional[int],
+    nro_atenciones: Optional[int],
+    fecha_recepcion,
+) -> dict:
+    """
+    Carga nombres desde IDs y ejecuta el modelo Random Forest.
+    Devuelve el mismo formato que predictor.predict_simple() para compatibilidad.
+    """
+    tipo_nombre = prioridad_nombre = aseg_nombre = ramo_nombre = None
+
+    if tipo_solicitud_id:
+        ts = (await db.execute(
+            select(TipoSolicitud).where(TipoSolicitud.id == tipo_solicitud_id)
+        )).scalar_one_or_none()
+        tipo_nombre = ts.nombre if ts else None
+
+    if prioridad_id:
+        pr = (await db.execute(
+            select(Prioridad).where(Prioridad.id == prioridad_id)
+        )).scalar_one_or_none()
+        prioridad_nombre = pr.nombre if pr else None
+
+    if aseguradora_id:
+        aseg = (await db.execute(
+            select(Aseguradora).where(Aseguradora.id == aseguradora_id)
+        )).scalar_one_or_none()
+        aseg_nombre = aseg.nombre if aseg else None
+
+    if ramo_id:
+        ramo = (await db.execute(
+            select(Ramo).where(Ramo.id == ramo_id)
+        )).scalar_one_or_none()
+        ramo_nombre = ramo.nombre if ramo else None
+
+    result = predecir_ans(
+        tipo_solicitud=tipo_nombre,
+        prioridad=prioridad_nombre,
+        aseguradora=aseg_nombre,
+        producto=ramo_nombre,
+        nro_atenciones=nro_atenciones,
+        fecha_recepcion=fecha_recepcion,
+        umbral=settings.PROBABILIDAD_UMBRAL_ANS,
+    )
+    return {
+        "probabilidad": result["probabilidad_incumplimiento"],
+        "prediccion": result["prediccion_ans"],
+        "modelo_version": result["modelo_usado"],
+        "tiempo_prediccion_ms": result["tiempo_prediccion_ms"],
+        "_rf_result": result,
+    }
+
+
+async def _guardar_prediccion_ans(
+    db: AsyncSession,
+    solicitud: Solicitud,
+    rf_result: dict,
+) -> None:
+    """Crea o actualiza el registro en predicciones_ans."""
+    prob = rf_result["probabilidad_incumplimiento"]
+    pred = rf_result["prediccion_ans"]
+    nivel = (
+        "critico" if prob >= 0.85
+        else "alto" if prob >= 0.70
+        else "medio" if prob >= 0.40
+        else "bajo"
+    )
+
+    existing = (await db.execute(
+        select(PrediccionANS).where(PrediccionANS.solicitud_id == solicitud.id)
+    )).scalar_one_or_none()
+
+    if existing:
+        existing.cumple_ans = (pred == "Dentro de ANS")
+        existing.probabilidad_riesgo = prob
+        existing.nivel_riesgo = nivel
+        existing.features_input = rf_result.get("variables_usadas", {})
+        existing.modelo_version = rf_result.get("modelo_usado", "")
+        existing.tiempo_prediccion_ms = rf_result.get("tiempo_prediccion_ms", 0.0)
+    else:
+        db.add(PrediccionANS(
+            solicitud_id=solicitud.id,
+            cumple_ans=(pred == "Dentro de ANS"),
+            probabilidad_riesgo=prob,
+            nivel_riesgo=nivel,
+            features_input=rf_result.get("variables_usadas", {}),
+            modelo_version=rf_result.get("modelo_usado", ""),
+            tiempo_prediccion_ms=rf_result.get("tiempo_prediccion_ms", 0.0),
+        ))
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -86,6 +187,7 @@ def _solicitud_to_list_item(s: Solicitud) -> dict:
         "ramo": s.ramo.nombre if s.ramo else None,
         "fecha_recepcion": s.fecha_recepcion,
         "fecha_finalizado": s.fecha_finalizado,
+        "fecha_envio_aseguradora": s.fecha_envio_aseguradora,
         "remitente": s.remitente,
         "asunto": s.asunto,
         "detalle_correo": _strip_html(s.cuerpo_correo, 200),
@@ -146,12 +248,23 @@ async def crear_desde_outlook(
     estado_id = await resolver_estado_pendiente_id(db)
     prioridad_id = await resolver_prioridad_id(db, payload.prioridad)
 
-    pred = predictor.predict_simple(
-        asunto=payload.asunto,
-        cuerpo=payload.cuerpo_correo or "",
-        prioridad_nombre=payload.prioridad,
-        umbral=settings.PROBABILIDAD_UMBRAL_ANS,
-    )
+    if rf_loaded():
+        pred = await _predecir_con_rf(
+            db,
+            tipo_solicitud_id=tipo_solicitud_id,
+            prioridad_id=prioridad_id,
+            aseguradora_id=aseguradora_id,
+            ramo_id=ramo_id,
+            nro_atenciones=payload.nro_atenciones or 1,
+            fecha_recepcion=payload.fecha_recepcion,
+        )
+    else:
+        pred = predictor.predict_simple(
+            asunto=payload.asunto,
+            cuerpo=payload.cuerpo_correo or "",
+            prioridad_nombre=payload.prioridad,
+            umbral=settings.PROBABILIDAD_UMBRAL_ANS,
+        )
 
     import logging as _logging
     _log = _logging.getLogger(__name__)
@@ -214,6 +327,11 @@ async def crear_desde_outlook(
     db.add(solicitud)
     await db.commit()
     await db.refresh(solicitud)
+
+    # Persistir predicción detallada en predicciones_ans (solo cuando usamos RF)
+    if rf_loaded() and "_rf_result" in pred:
+        await _guardar_prediccion_ans(db, solicitud, pred["_rf_result"])
+        await db.commit()
 
     if tipo_solicitud_id:
         ts = (await db.execute(select(TipoSolicitud).where(TipoSolicitud.id == tipo_solicitud_id))).scalar_one_or_none()
@@ -378,11 +496,33 @@ async def editar_solicitud(
             sol.fecha_finalizado = datetime.now(timezone.utc)
         sol.estado = estado.nombre if estado else sol.estado
 
+    _campos_prediccion = {"tipo_solicitud_id", "prioridad_id", "aseguradora_id", "ramo_id", "nro_atenciones"}
+    recalcular = rf_loaded() and bool(_campos_prediccion & set(payload.keys()))
+
     for k, v in payload.items():
         setattr(sol, k, v)
 
     await db.commit()
     await db.refresh(sol)
+
+    # Recalcular predicción si cambió algún campo relevante
+    if recalcular:
+        pred = await _predecir_con_rf(
+            db,
+            tipo_solicitud_id=sol.tipo_solicitud_id,
+            prioridad_id=sol.prioridad_id,
+            aseguradora_id=sol.aseguradora_id,
+            ramo_id=sol.ramo_id,
+            nro_atenciones=sol.nro_atenciones,
+            fecha_recepcion=sol.fecha_recepcion,
+        )
+        sol.probabilidad = pred["probabilidad"]
+        sol.prediccion = pred["prediccion"]
+        await db.commit()
+        await db.refresh(sol)
+        if "_rf_result" in pred:
+            await _guardar_prediccion_ans(db, sol, pred["_rf_result"])
+            await db.commit()
 
     result = await db.execute(
         select(Solicitud).options(
@@ -684,12 +824,23 @@ async def crear_solicitud_manual(
         aseg_id = aseg_id or aseg_auto
         ramo_id_v = ramo_id_v or ramo_auto
 
-    pred = predictor.predict_simple(
-        asunto=data.asunto or "",
-        cuerpo=data.cuerpo_correo or "",
-        prioridad_nombre=None,
-        umbral=settings.PROBABILIDAD_UMBRAL_ANS,
-    )
+    if rf_loaded():
+        pred = await _predecir_con_rf(
+            db,
+            tipo_solicitud_id=data.tipo_solicitud_id,
+            prioridad_id=data.prioridad_id,
+            aseguradora_id=aseg_id,
+            ramo_id=ramo_id_v,
+            nro_atenciones=data.nro_atenciones or 1,
+            fecha_recepcion=data.fecha_recepcion,
+        )
+    else:
+        pred = predictor.predict_simple(
+            asunto=data.asunto or "",
+            cuerpo=data.cuerpo_correo or "",
+            prioridad_nombre=None,
+            umbral=settings.PROBABILIDAD_UMBRAL_ANS,
+        )
 
     sol = Solicitud(
         nro_ticket=nro_ticket,
@@ -713,6 +864,11 @@ async def crear_solicitud_manual(
     db.add(sol)
     await db.commit()
     await db.refresh(sol)
+
+    if rf_loaded() and "_rf_result" in pred:
+        await _guardar_prediccion_ans(db, sol, pred["_rf_result"])
+        await db.commit()
+
     return {
         "id": str(sol.id),
         "nro_ticket": nro_ticket,

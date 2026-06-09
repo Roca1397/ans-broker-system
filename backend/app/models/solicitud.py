@@ -182,6 +182,7 @@ class Solicitud(Base):
     cuerpo_correo = Column(Text, nullable=True)
     fecha_recepcion = Column(DateTime(timezone=True), nullable=True)
     fecha_finalizado = Column(DateTime(timezone=True), nullable=True)
+    fecha_envio_aseguradora = Column(DateTime(timezone=True), nullable=True)
 
     # ── Adjuntos ───────────────────────────────────────────────────
     datos_adjuntos = Column(JSONB, nullable=True)

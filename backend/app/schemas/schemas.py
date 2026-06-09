@@ -239,6 +239,7 @@ class SolicitudListItem(BaseModel):
     ramo: Optional[str] = None
     fecha_recepcion: Optional[datetime] = None
     fecha_finalizado: Optional[datetime] = None
+    fecha_envio_aseguradora: Optional[datetime] = None
     remitente: Optional[str] = None
     asunto: Optional[str] = None
     probabilidad: Optional[float] = None
@@ -273,6 +274,7 @@ class SolicitudUpdate(BaseModel):
     prioridad_id: Optional[int] = None
     ramo_id: Optional[int] = None
     fecha_finalizado: Optional[datetime] = None
+    fecha_envio_aseguradora: Optional[datetime] = None
     comentarios: Optional[str] = None
     asunto: Optional[str] = None
     cuerpo_correo: Optional[str] = None
@@ -291,6 +293,7 @@ class SolicitudCreateManual(BaseModel):
     asunto: Optional[str] = None
     cuerpo_correo: Optional[str] = None
     fecha_recepcion: Optional[datetime] = None
+    fecha_envio_aseguradora: Optional[datetime] = None
     comentarios: Optional[str] = None
     nro_atenciones: Optional[int] = Field(default=1, ge=1)
 
@@ -352,6 +355,17 @@ class PredictionResponse(BaseModel):
     mensaje: str
     recomendacion: str
     modelo_version: str
+    tiempo_prediccion_ms: float
+
+
+# ── PREDICCIONES RF (nuevo) ───────────────────────────────────────
+class PredictionRFResponse(BaseModel):
+    """Respuesta del endpoint /predict-solicitud (Random Forest v1)."""
+    prediccion_ans: str            # "Dentro de ANS" | "Fuera de ANS"
+    probabilidad_incumplimiento: float   # 0.0–1.0
+    modelo_usado: str
+    variables_usadas: dict
+    advertencias: List[str] = []
     tiempo_prediccion_ms: float
 
 

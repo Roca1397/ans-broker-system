@@ -90,6 +90,7 @@ export interface SolicitudListItem {
   ramo?: string;
   fecha_recepcion?: string;
   fecha_finalizado?: string;
+  fecha_envio_aseguradora?: string | null;
   remitente?: string;
   asunto?: string;
   detalle_correo?: string;
@@ -131,6 +132,7 @@ export interface SolicitudUpdate {
   prioridad_id?: number | null;
   ramo_id?: number | null;
   fecha_finalizado?: string | null;
+  fecha_envio_aseguradora?: string | null;
   comentarios?: string;
   asunto?: string;
   cuerpo_correo?: string;
@@ -161,6 +163,16 @@ export interface SolicitudConPrediccion {
   probabilidad_riesgo?: number;
   nivel_riesgo?: string;
   prediccion_fecha?: string;
+}
+
+// ── Predicción RF (nuevo endpoint /predict-solicitud) ──────
+export interface PrediccionRF {
+  prediccion_ans: string;
+  probabilidad_incumplimiento: number;
+  modelo_usado: string;
+  variables_usadas: Record<string, number>;
+  advertencias: string[];
+  tiempo_prediccion_ms: number;
 }
 
 // ── Dashboard / Alertas ────────────────────────────────────

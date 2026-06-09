@@ -333,6 +333,10 @@ import {
               <label class="field-label">Fecha límite (cierre)</label>
               <input type="datetime-local" [(ngModel)]="editForm.fecha_finalizado" />
             </div>
+            <div class="field">
+              <label class="field-label">Fecha de envío a aseguradora</label>
+              <input type="datetime-local" [(ngModel)]="editForm.fecha_envio_aseguradora" />
+            </div>
           </section>
 
           <!-- ── Adjuntos ───────────────────────────────────────── -->
@@ -800,6 +804,9 @@ export class ListaSolicitudesComponent implements OnInit {
           fecha_finalizado:  d.fecha_finalizado
             ? this.toLocalDatetimeInput(d.fecha_finalizado)
             : '',
+          fecha_envio_aseguradora: d.fecha_envio_aseguradora
+            ? this.toLocalDatetimeInput(d.fecha_envio_aseguradora)
+            : '',
           ejecutivo_id:      d.ejecutivo_id ?? null,
           nro_atenciones:    d.nro_atenciones ?? 1,
         };
@@ -834,6 +841,9 @@ export class ListaSolicitudesComponent implements OnInit {
       // datetime-local gives "YYYY-MM-DDTHH:MM"; Pydantic needs ISO-8601 or null
       fecha_finalizado:  raw.fecha_finalizado
         ? new Date(raw.fecha_finalizado).toISOString()
+        : null,
+      fecha_envio_aseguradora: raw.fecha_envio_aseguradora
+        ? new Date(raw.fecha_envio_aseguradora).toISOString()
         : null,
       nro_atenciones: raw.nro_atenciones ? Math.max(1, parseInt(raw.nro_atenciones, 10)) : null,
       ...(this.auth.isAdmin() ? { ejecutivo_id: raw.ejecutivo_id || null } : {}),

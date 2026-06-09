@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import {
-  Solicitud, SolicitudConPrediccion, Prediccion, DashboardStats,
+  Solicitud, SolicitudConPrediccion, Prediccion, PrediccionRF, DashboardStats,
   Alerta, Aseguradora, TipoOperacion, PaginatedResponse, BulkUploadResult,
   SolicitudListItem, SolicitudDetail, SolicitudUpdate,
   CatalogoItem, Cliente, ClienteRemitente, EjecutivoUser, User,
@@ -121,6 +121,14 @@ export class PrediccionesService {
 
   predecir(data: any) {
     return this.http.post<Prediccion>(`${this.base}/predict`, data);
+  }
+
+  predictSolicitud(solicitudId: string) {
+    return this.http.post<PrediccionRF>(
+      `${this.base}/predict-solicitud`,
+      null,
+      { params: { solicitud_id: solicitudId } }
+    );
   }
 
   resultados(params: any = {}) {
