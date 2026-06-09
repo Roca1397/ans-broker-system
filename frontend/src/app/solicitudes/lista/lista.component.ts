@@ -1078,7 +1078,7 @@ export class ListaSolicitudesComponent implements OnInit {
     });
   }
 
-  formatDateShort(d?: string): string {
+  formatDateShort(d?: string | null): string {
     if (!d) return '';
     return new Date(d).toLocaleString('es-PE', {
       day: '2-digit', month: '2-digit', year: 'numeric',
