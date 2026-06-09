@@ -100,7 +100,6 @@ async def admin_listar_aseguradoras(db: AsyncSession = Depends(get_db), _=Depend
 async def admin_crear_aseguradora(data: AseguradoraCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
     obj = Aseguradora(
         nombre=data.nombre, codigo=data.codigo,
-        ans_horas_limite=data.ans_horas_limite,
         contacto=data.contacto, direccion=data.direccion,
         is_active=data.activo, activo=data.activo,
     )

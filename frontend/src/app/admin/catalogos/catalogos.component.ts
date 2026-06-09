@@ -59,10 +59,6 @@ interface CatalogTab {
             <input type="text" [(ngModel)]="form.codigo" placeholder="RIMAC" />
           </div>
           <div class="field">
-            <label>ANS Horas Límite</label>
-            <input type="number" [(ngModel)]="form.ans_horas_limite" placeholder="48" />
-          </div>
-          <div class="field">
             <label>Estado</label>
             <select [(ngModel)]="form.activo">
               <option [ngValue]="true">Activo</option>
@@ -99,7 +95,6 @@ interface CatalogTab {
             <td><small class="muted">#{{ item.id }}</small></td>
             <td><strong>{{ item.nombre }}</strong></td>
             <td *ngIf="active().key === 'aseguradoras'"><code>{{ item.codigo }}</code></td>
-            <td *ngIf="active().key === 'aseguradoras'">{{ item.ans_horas_limite }}h</td>
             <td><span class="pill" [class.activo]="isActive(item)">{{ isActive(item) ? 'Activo' : 'Inactivo' }}</span></td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(item)">Editar</button>
@@ -251,7 +246,7 @@ export class AdminCatalogosComponent implements OnInit {
       nombre: item.nombre,
       activo: this.isActive(item),
       ...(this.active().key === 'aseguradoras'
-        ? { codigo: item.codigo, ans_horas_limite: item.ans_horas_limite }
+        ? { codigo: item.codigo }
         : {}),
     };
   }
@@ -259,7 +254,7 @@ export class AdminCatalogosComponent implements OnInit {
   cancel(): void {
     this.editingId.set(null);
     this.form = this.active().key === 'aseguradoras'
-      ? { nombre: '', codigo: '', ans_horas_limite: 48, activo: true }
+      ? { nombre: '', codigo: '', activo: true }
       : { nombre: '', activo: true };
     this.error.set('');
   }

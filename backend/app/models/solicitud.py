@@ -34,7 +34,6 @@ class Aseguradora(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(255), nullable=False)
     codigo = Column(String(50), unique=True, nullable=False)
-    ans_horas_limite = Column(Integer, nullable=False, default=48)
     contacto = Column(String(255), nullable=True)
     direccion = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)

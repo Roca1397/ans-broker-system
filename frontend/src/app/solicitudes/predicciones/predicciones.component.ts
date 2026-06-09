@@ -61,7 +61,6 @@ import { SolicitudConPrediccion } from '../../models/models';
               <th>N° Ticket</th>
               <th>Cliente</th>
               <th>Aseguradora</th>
-              <th>Límite ANS</th>
               <th>Resultado ANS</th>
               <th>Prob. Riesgo</th>
               <th>Nivel Riesgo</th>
@@ -76,11 +75,6 @@ import { SolicitudConPrediccion } from '../../models/models';
               </td>
               <td style="font-size:0.82rem">{{ s.cliente || '—' }}</td>
               <td style="font-size:0.82rem">{{ s.aseguradora || '—' }}</td>
-              <td>
-                <span class="font-mono" style="font-size:0.8rem;color:var(--text-muted)">
-                  {{ s.ans_horas_limite ? s.ans_horas_limite + 'h' : '—' }}
-                </span>
-              </td>
               <td>
                 <span *ngIf="s.cumple_ans !== null && s.cumple_ans !== undefined" class="badge" [class]="s.cumple_ans ? 'badge-success' : 'badge-danger'">
                   {{ s.cumple_ans ? '✓ Dentro' : '✗ Fuera' }}

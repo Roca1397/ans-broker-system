@@ -90,7 +90,6 @@ class AseguradoraOut(BaseModel):
     id: int
     nombre: str
     codigo: str
-    ans_horas_limite: int
     contacto: Optional[str] = None
     direccion: Optional[str] = None
     activo: Optional[bool] = True
@@ -136,7 +135,6 @@ class CatalogoOut(BaseModel):
 class AseguradoraCreate(BaseModel):
     nombre: str
     codigo: str = Field(..., max_length=50)
-    ans_horas_limite: int = 48
     contacto: Optional[str] = None
     direccion: Optional[str] = None
     activo: bool = True
@@ -145,7 +143,6 @@ class AseguradoraCreate(BaseModel):
 class AseguradoraUpdate(BaseModel):
     nombre: Optional[str] = None
     codigo: Optional[str] = None
-    ans_horas_limite: Optional[int] = None
     contacto: Optional[str] = None
     direccion: Optional[str] = None
     activo: Optional[bool] = None
@@ -376,7 +373,6 @@ class SolicitudConPrediccionOut(BaseModel):
     estado: str
     fuente: str
     aseguradora: Optional[str] = None
-    ans_horas_limite: Optional[int] = None
     cumple_ans: Optional[bool] = None
     probabilidad_riesgo: Optional[float] = None
     nivel_riesgo: Optional[str] = None

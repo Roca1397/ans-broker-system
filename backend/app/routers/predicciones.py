@@ -214,7 +214,6 @@ async def resultados_predicciones(
             estado=s.estado,
             fuente=s.fuente,
             aseguradora=s.aseguradora.nombre if s.aseguradora else None,
-            ans_horas_limite=s.aseguradora.ans_horas_limite if s.aseguradora else None,
             cumple_ans=s.prediccion_rel.cumple_ans if s.prediccion_rel else None,
             probabilidad_riesgo=s.prediccion_rel.probabilidad_riesgo if s.prediccion_rel else None,
             nivel_riesgo=s.prediccion_rel.nivel_riesgo if s.prediccion_rel else None,

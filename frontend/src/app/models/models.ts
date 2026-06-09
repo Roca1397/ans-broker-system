@@ -24,7 +24,6 @@ export interface Aseguradora {
   id: number;
   nombre: string;
   codigo: string;
-  ans_horas_limite: number;
   contacto?: string | null;
   direccion?: string | null;
   activo?: boolean;
@@ -158,7 +157,6 @@ export interface SolicitudConPrediccion {
   estado: string;
   fuente: string;
   aseguradora?: string;
-  ans_horas_limite?: number;
   cumple_ans?: boolean;
   probabilidad_riesgo?: number;
   nivel_riesgo?: string;

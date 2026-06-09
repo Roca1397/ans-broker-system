@@ -28,10 +28,6 @@ import { Aseguradora } from '../../models/models';
           <input type="text" [(ngModel)]="form.codigo" placeholder="RIMAC" style="text-transform:uppercase" />
         </div>
         <div class="field">
-          <label>ANS horas límite</label>
-          <input type="number" [(ngModel)]="form.ans_horas_limite" min="1" placeholder="48" />
-        </div>
-        <div class="field">
           <label>Contacto</label>
           <input type="text" [(ngModel)]="form.contacto" placeholder="Nombre o correo del contacto" />
         </div>
@@ -57,7 +53,6 @@ import { Aseguradora } from '../../models/models';
             <th class="th-id">ID</th>
             <th>Nombre</th>
             <th>Código</th>
-            <th>ANS h.</th>
             <th>Contacto</th>
             <th></th>
           </tr>
@@ -67,7 +62,6 @@ import { Aseguradora } from '../../models/models';
             <td><small class="muted">#{{ item.id }}</small></td>
             <td><strong>{{ item.nombre }}</strong></td>
             <td><code>{{ item.codigo }}</code></td>
-            <td>{{ item.ans_horas_limite }}h</td>
             <td>{{ item.contacto || '—' }}</td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(item)">Editar</button>
@@ -75,7 +69,7 @@ import { Aseguradora } from '../../models/models';
             </td>
           </tr>
           <tr *ngIf="items().length === 0">
-            <td colspan="6"><div class="empty-state"><p>No hay aseguradoras registradas.</p></div></td>
+            <td colspan="5"><div class="empty-state"><p>No hay aseguradoras registradas.</p></div></td>
           </tr>
         </tbody>
       </table>
@@ -116,7 +110,7 @@ export class AdminAseguradorasComponent implements OnInit {
   saving = signal(false);
   editingId = signal<number | null>(null);
   error = signal('');
-  form: any = { nombre: '', codigo: '', ans_horas_limite: 48, contacto: '', direccion: '', activo: true };
+  form: any = { nombre: '', codigo: '', contacto: '', direccion: '', activo: true };
 
   constructor(private admin: AdminService) {}
 
@@ -147,7 +141,6 @@ export class AdminAseguradorasComponent implements OnInit {
     this.form = {
       nombre: item.nombre,
       codigo: item.codigo,
-      ans_horas_limite: item.ans_horas_limite,
       contacto: item.contacto || '',
       direccion: item.direccion || '',
       activo: item.activo ?? true,
@@ -156,7 +149,7 @@ export class AdminAseguradorasComponent implements OnInit {
 
   cancel(): void {
     this.editingId.set(null);
-    this.form = { nombre: '', codigo: '', ans_horas_limite: 48, contacto: '', direccion: '', activo: true };
+    this.form = { nombre: '', codigo: '', contacto: '', direccion: '', activo: true };
     this.error.set('');
   }
 
