@@ -401,10 +401,10 @@ const ALL_COLUMNS = [
             </div>
           </div>
 
-          <!-- ── Fecha límite ────────────────────────────────────── -->
+          <!-- ── Fechas operativas ──────────────────────────────── -->
           <section class="form-section">
             <div class="field">
-              <label class="field-label">Fecha límite (cierre)</label>
+              <label class="field-label">Fecha de atención</label>
               <input type="datetime-local" [(ngModel)]="editForm.fecha_finalizado" />
             </div>
             <div class="field">
