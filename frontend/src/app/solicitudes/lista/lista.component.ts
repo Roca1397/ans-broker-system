@@ -8,6 +8,32 @@ import {
   SolicitudListItem, SolicitudDetail, Aseguradora, CatalogoItem, AdjuntoMeta, EjecutivoUser,
 } from '../../models/models';
 
+// ── Column picker ─────────────────────────────────────────────────────────────
+const LS_COLS = 'solicitudes_columnas_visibles';
+const DEFAULT_COLS = [
+  'ticket','cliente','tipo','estado','prioridad','nro_atenciones',
+  'ejecutivo','aseguradora','ramo','remitente','recepcion','asunto','adjuntos',
+];
+const ALL_COLUMNS = [
+  { key: 'ticket',         label: 'Ticket' },
+  { key: 'cliente',        label: 'Cliente' },
+  { key: 'tipo',           label: 'Tipo' },
+  { key: 'estado',         label: 'Estado' },
+  { key: 'prioridad',      label: 'Prioridad' },
+  { key: 'nro_atenciones', label: 'Nro. Atenciones' },
+  { key: 'ejecutivo',      label: 'Ejecutivo' },
+  { key: 'aseguradora',    label: 'Aseguradora' },
+  { key: 'ramo',           label: 'Ramo' },
+  { key: 'remitente',      label: 'Remitente' },
+  { key: 'recepcion',      label: 'Recepción' },
+  { key: 'asunto',         label: 'Asunto' },
+  { key: 'prediccion',     label: 'Predicción ANS' },
+  { key: 'probabilidad',   label: 'Probabilidad incumplimiento' },
+  { key: 'fecha_limite',   label: 'Fecha límite' },
+  { key: 'fecha_envio',    label: 'Fecha envío aseguradora' },
+  { key: 'adjuntos',       label: 'Adjuntos' },
+];
+
 @Component({
   selector: 'app-lista-solicitudes',
   standalone: true,
@@ -26,6 +52,7 @@ import {
     </div>
     <!-- ── SEARCH + FILTERS ──────────────────────────────────────── -->
     <div *ngIf="showFilters" class="filter-backdrop" (click)="showFilters = false"></div>
+    <div *ngIf="showColumnPicker" class="filter-backdrop" (click)="showColumnPicker = false"></div>
     <div class="search-toolbar">
       <div class="search-box">
         <svg class="search-icon" viewBox="0 0 20 20" fill="none" width="15" height="15">
@@ -103,6 +130,36 @@ import {
           </div>
         </div>
       </div>
+
+      <!-- ── Column picker ───────────────────────────────────────── -->
+      <div class="filter-btn-wrap">
+        <button class="btn-filter" (click)="toggleColumnPicker()"
+                [class.btn-filter-on]="hasCustomColumns()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+            <line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          Columnas
+        </button>
+        <div class="filter-panel col-picker-panel" *ngIf="showColumnPicker" (click)="$event.stopPropagation()">
+          <div class="fp-header">
+            <strong>Columnas visibles</strong>
+            <button class="fp-close" (click)="showColumnPicker = false">✕</button>
+          </div>
+          <div class="fp-body col-picker-body">
+            <label *ngFor="let c of allColumns" class="col-item">
+              <input type="checkbox" [checked]="col(c.key)" (change)="toggleCol(c.key)" />
+              {{ c.label }}
+            </label>
+          </div>
+          <div class="fp-footer">
+            <button class="fp-clear" (click)="resetColumns()">↺ Restaurar vista</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ── TABLE ─────────────────────────────────────────────────── -->
@@ -122,49 +179,66 @@ import {
         <table>
           <thead>
             <tr>
-              <th class="col-ticket">Ticket</th>
-              <th>Cliente</th>
-              <th>Tipo</th>
-              <th>Estado</th>
-              <th>Prioridad</th>
-              <th class="cell-center">Nro. Atenciones</th>
-              <th>Ejecutivo</th>
-              <th>Aseguradora</th>
-              <th>Ramo</th>
-              <th>Remitente</th>
-              <th>Recepción</th>
-              <th class="col-asunto">Asunto</th>
-              <th class="col-adj"></th>
+              <th *ngIf="col('ticket')" class="col-ticket">Ticket</th>
+              <th *ngIf="col('cliente')">Cliente</th>
+              <th *ngIf="col('tipo')">Tipo</th>
+              <th *ngIf="col('estado')">Estado</th>
+              <th *ngIf="col('prioridad')">Prioridad</th>
+              <th *ngIf="col('nro_atenciones')" class="cell-center">Nro. Atenciones</th>
+              <th *ngIf="col('ejecutivo')">Ejecutivo</th>
+              <th *ngIf="col('aseguradora')">Aseguradora</th>
+              <th *ngIf="col('ramo')">Ramo</th>
+              <th *ngIf="col('remitente')">Remitente</th>
+              <th *ngIf="col('recepcion')">Recepción</th>
+              <th *ngIf="col('asunto')" class="col-asunto">Asunto</th>
+              <th *ngIf="col('prediccion')">Predicción ANS</th>
+              <th *ngIf="col('probabilidad')">Probabilidad</th>
+              <th *ngIf="col('fecha_limite')">Fecha límite</th>
+              <th *ngIf="col('fecha_envio')">Envío aseguradora</th>
+              <th *ngIf="col('adjuntos')" class="col-adj"></th>
               <th class="col-open"></th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let s of solicitudes()" (click)="openDetail(s)" class="row-clickable">
-              <td><span class="ticket">{{ s.nro_ticket || '—' }}</span></td>
-              <td class="cell-nowrap">{{ s.cliente || '—' }}</td>
-              <td>
+              <td *ngIf="col('ticket')"><span class="ticket">{{ s.nro_ticket || '—' }}</span></td>
+              <td *ngIf="col('cliente')" class="cell-nowrap">{{ s.cliente || '—' }}</td>
+              <td *ngIf="col('tipo')">
                 <span *ngIf="s.tipo_solicitud" class="pill pill-tipo">{{ s.tipo_solicitud }}</span>
                 <span *ngIf="!s.tipo_solicitud" class="muted-dash">—</span>
               </td>
-              <td><span class="pill" [class]="estadoClass(s.estado)">{{ s.estado || '—' }}</span></td>
-              <td>
+              <td *ngIf="col('estado')"><span class="pill" [class]="estadoClass(s.estado)">{{ s.estado || '—' }}</span></td>
+              <td *ngIf="col('prioridad')">
                 <span *ngIf="s.prioridad" class="pill" [class]="prioridadClass(s.prioridad)">{{ s.prioridad }}</span>
                 <span *ngIf="!s.prioridad" class="muted-dash">—</span>
               </td>
-              <td class="cell-center"><span class="font-mono">{{ s.nro_atenciones ?? 1 }}</span></td>
-              <td class="cell-nowrap">{{ s.ejecutivo || '—' }}</td>
-              <td class="cell-nowrap">{{ s.aseguradora || '—' }}</td>
-              <td>{{ s.ramo || '—' }}</td>
-              <td class="cell-nowrap">{{ s.remitente || '—' }}</td>
-              <td class="cell-date"><small>{{ formatDateShort(s.fecha_recepcion) || '—' }}</small></td>
-              <td class="cell-truncate">{{ s.asunto }}</td>
-              <td class="cell-center">
+              <td *ngIf="col('nro_atenciones')" class="cell-center"><span class="font-mono">{{ s.nro_atenciones ?? 1 }}</span></td>
+              <td *ngIf="col('ejecutivo')" class="cell-nowrap">{{ s.ejecutivo || '—' }}</td>
+              <td *ngIf="col('aseguradora')" class="cell-nowrap">{{ s.aseguradora || '—' }}</td>
+              <td *ngIf="col('ramo')">{{ s.ramo || '—' }}</td>
+              <td *ngIf="col('remitente')" class="cell-nowrap">{{ s.remitente || '—' }}</td>
+              <td *ngIf="col('recepcion')" class="cell-date"><small>{{ formatDateShort(s.fecha_recepcion) || '—' }}</small></td>
+              <td *ngIf="col('asunto')" class="cell-truncate">{{ s.asunto }}</td>
+              <td *ngIf="col('prediccion')">
+                <span *ngIf="s.prediccion" class="pill" [class]="prediccionClass(s.prediccion)">{{ s.prediccion }}</span>
+                <span *ngIf="!s.prediccion" class="muted-dash">—</span>
+              </td>
+              <td *ngIf="col('probabilidad')" class="cell-center">
+                <span [class]="probClass(s.probabilidad)">{{ formatProb(s.probabilidad) }}</span>
+              </td>
+              <td *ngIf="col('fecha_limite')" class="cell-date">
+                <small>{{ formatDateShort(s.fecha_finalizado) || '—' }}</small>
+              </td>
+              <td *ngIf="col('fecha_envio')" class="cell-date">
+                <small>{{ formatDateShort(s.fecha_envio_aseguradora) || '—' }}</small>
+              </td>
+              <td *ngIf="col('adjuntos')" class="cell-center">
                 <span *ngIf="s.tiene_adjuntos" class="adj-icon" title="Tiene adjuntos">📎</span>
               </td>
               <td><span class="open-arrow">›</span></td>
             </tr>
             <tr *ngIf="solicitudes().length === 0">
-              <td colspan="14">
+              <td [attr.colspan]="visibleColCount()">
                 <div class="empty-state">
                   <div class="empty-icon">📭</div>
                   <h3>No hay solicitudes</h3>
@@ -466,6 +540,17 @@ import {
     .fp-clear { width: 100%; padding: 7px; border-radius: var(--radius); border: 1px solid var(--border); background: none; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
     .fp-clear:hover { background: rgba(255,76,76,0.07); border-color: var(--danger); color: var(--danger); }
 
+    /* ── Column picker ───────────────────────────────────────── */
+    .col-picker-panel { width: 222px; }
+    .col-picker-body  { max-height: 272px; overflow-y: auto; }
+    .col-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 5px 4px; cursor: pointer; border-radius: var(--radius);
+      font-size: 0.82rem; color: var(--text-primary); user-select: none;
+    }
+    .col-item:hover { background: var(--bg-hover); }
+    .col-item input[type=checkbox] { cursor: pointer; accent-color: var(--primary); width: 13px; height: 13px; flex-shrink: 0; }
+
     /* ── Table ───────────────────────────────────────────────── */
     .table-card { padding: 0; overflow: hidden; }
     .table-wrapper { overflow-x: auto; }
@@ -498,6 +583,11 @@ import {
     .p-media, .e-en-proceso { background: rgba(245,166,35,0.15); color: var(--warning); }
     .p-baja,  .e-finalizado { background: rgba(16,185,129,0.15); color: var(--success); }
     .pill-tipo { background: rgba(0,90,158,0.1); color: var(--primary); }
+    .e-fuera   { background: rgba(255,76,76,0.12);  color: var(--danger); }
+    .e-dentro  { background: rgba(16,185,129,0.15); color: var(--success); }
+    .prob-alto  { color: var(--danger);  font-weight: 600; font-family: var(--font-mono, monospace); font-size: 0.75rem; }
+    .prob-medio { color: var(--warning); font-weight: 600; font-family: var(--font-mono, monospace); font-size: 0.75rem; }
+    .prob-bajo  { color: var(--success); font-weight: 600; font-family: var(--font-mono, monospace); font-size: 0.75rem; }
 
     /* States */
     .empty-state { text-align: center; padding: 60px 20px; white-space: normal; }
@@ -712,6 +802,21 @@ export class ListaSolicitudesComponent implements OnInit {
   filterPrediccion = '';
   orderBy = 'created_at';
   showFilters = false;
+  showColumnPicker = false;
+  readonly allColumns = ALL_COLUMNS;
+  private _visibleCols = signal<Set<string>>((() => {
+    try {
+      const s = localStorage.getItem(LS_COLS);
+      if (s) return new Set<string>(JSON.parse(s));
+    } catch {}
+    return new Set<string>(DEFAULT_COLS);
+  })());
+  visibleColCount = computed(() => ALL_COLUMNS.filter(c => this._visibleCols().has(c.key)).length + 1);
+  hasCustomColumns = computed(() => {
+    const v = this._visibleCols();
+    if (v.size !== DEFAULT_COLS.length) return true;
+    return DEFAULT_COLS.some(k => !v.has(k));
+  });
 
   editForm: any = {};
   newComment = '';
@@ -1028,5 +1133,35 @@ export class ListaSolicitudesComponent implements OnInit {
     if (n === 'en-proceso') return 'e-en-proceso';
     if (n === 'finalizado') return 'e-finalizado';
     return '';
+  }
+
+  col(key: string): boolean { return this._visibleCols().has(key); }
+
+  toggleCol(key: string): void {
+    const next = new Set(this._visibleCols());
+    next.has(key) ? next.delete(key) : next.add(key);
+    this._visibleCols.set(next);
+    this._saveCols();
+  }
+
+  resetColumns(): void {
+    this._visibleCols.set(new Set<string>(DEFAULT_COLS));
+    this._saveCols();
+    this.showColumnPicker = false;
+  }
+
+  toggleColumnPicker(): void {
+    this.showColumnPicker = !this.showColumnPicker;
+    if (this.showColumnPicker) this.showFilters = false;
+  }
+
+  prediccionClass(p?: string): string {
+    if (p === 'Fuera de ANS') return 'e-fuera';
+    if (p === 'Dentro de ANS') return 'e-dentro';
+    return '';
+  }
+
+  private _saveCols(): void {
+    try { localStorage.setItem(LS_COLS, JSON.stringify([...this._visibleCols()])); } catch {}
   }
 }
