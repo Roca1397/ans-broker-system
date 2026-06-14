@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import {
   Solicitud, SolicitudConPrediccion, Prediccion, PrediccionRF, DashboardStats,
-  Alerta, Aseguradora, TipoOperacion, PaginatedResponse, BulkUploadResult,
+  Alerta, Aseguradora, TipoOperacion, PaginatedResponse,
   SolicitudListItem, SolicitudDetail, SolicitudUpdate,
   CatalogoItem, Cliente, ClienteRemitente, EjecutivoUser, User,
 } from '../models/models';
@@ -35,12 +35,6 @@ export class SolicitudesService {
 
   obtener(id: string) {
     return this.http.get<any>(`${this.base}/${id}`);
-  }
-
-  cargaMasiva(file: File) {
-    const fd = new FormData();
-    fd.append('file', file);
-    return this.http.post<BulkUploadResult>(`${this.base}/bulk-upload`, fd);
   }
 
   // ── NUEVOS métodos SharePoint-like ──────────────────────

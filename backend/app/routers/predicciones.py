@@ -44,11 +44,14 @@ async def _persistir_prediccion(
     result: dict,
 ) -> None:
     """
-    Crea o actualiza el registro en predicciones_ans y sincroniza los campos
-    probabilidad / prediccion en la tabla solicitudes.
+    Persiste en predicciones_ans SOLO cuando el RF v2 produjo un resultado válido.
+    Si prediccion_ans no es 'Dentro de ANS' ni 'Fuera de ANS', no guarda nada.
     """
-    prob = result["probabilidad_incumplimiento"]
     pred = result["prediccion_ans"]
+    if pred not in ("Dentro de ANS", "Fuera de ANS"):
+        return
+
+    prob = result["probabilidad_incumplimiento"]
     nivel = (
         "critico" if prob >= 0.85
         else "alto" if prob >= 0.70
@@ -93,7 +96,10 @@ async def predict_ans_legacy(
     data: PredictionRequest,
     _: User = Depends(get_current_user),
 ):
-    """Predicción ANS basada en asunto, cuerpo y prioridad del correo (interfaz legada)."""
+    """
+    [LEGACY] Heurística de palabras clave pura. No usa RF v2. No persiste en BD.
+    modelo_version siempre será 'legacy_no_persistente'.
+    """
     result = predictor.predict_simple(
         asunto=data.asunto or "",
         cuerpo=data.cuerpo or "",
@@ -133,8 +139,8 @@ async def predict_por_solicitud(
     if not is_loaded():
         raise HTTPException(
             status_code=503,
-            detail="Modelo Random Forest no disponible. "
-                   "Verifique que ml_models/modelo_random_forest.pkl exista.",
+            detail="Modelo Random Forest v2 no disponible. "
+                   "Verifique que ml_models/modelo_random_forest_v2.pkl exista.",
         )
 
     # Cargar solicitud con todas las relaciones necesarias

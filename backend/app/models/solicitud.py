@@ -45,7 +45,7 @@ class Aseguradora(Base):
 
 
 class TipoOperacion(Base):
-    """Catálogo legado mantenido para compatibilidad (carga masiva Excel)."""
+    """Catálogo legado mantenido para compatibilidad."""
     __tablename__ = "tipos_operacion"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

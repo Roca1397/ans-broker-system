@@ -1,8 +1,8 @@
 """
-Servicio de predicción ANS — Random Forest v1
+Servicio de predicción ANS — Random Forest v2
 
-Modelo: backend/app/ml_models/modelo_random_forest.pkl
-Encoders: backend/app/ml_models/label_encoders.pkl
+Modelo: backend/app/ml_models/modelo_random_forest_v2.pkl
+Encoders: backend/app/ml_models/label_encoders_v2.pkl
 
 Features esperadas (orden exacto del entrenamiento):
   Tipo_Solicitud_enc, Prioridad_enc, Aseguradora_enc, Producto_enc,
@@ -17,13 +17,13 @@ Mapeo BD → modelo:
   ramo.nombre            → Producto             → Producto_enc  (Producto = Ramo)
   calculado de fecha     → Verificacion_de_dia  → Verificacion_de_dia_enc
   nro_atenciones         → Nro_atenciones
-  obtener_cruce_ans_num(tipo, ramo) → CRUCE_ANS_num  (v1: solo tipo × línea ramo)
+  obtener_cruce_ans_num(tipo, ramo) → CRUCE_ANS_num  (tipo × línea ramo)
   fecha_recepcion        → hora_decimal, mes_solicitud, semana_anio,
                            dia_semana_num, es_fin_semana, es_inicio_mes,
                            es_fin_mes, es_despues_5pm
 
-NOTA v1: fecha_envio_aseguradora existe como campo operativo en la BD
-         pero NO se usa como entrada del modelo en esta versión.
+NOTA: fecha_envio_aseguradora existe como campo operativo en la BD
+      pero NO se usa como entrada del modelo.
 """
 import time
 import logging
@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 
 # ── Rutas del modelo (relativas al archivo, funciona en local y Render) ──────
 _ML_DIR = Path(__file__).resolve().parent.parent / "ml_models"
-_MODEL_PATH    = _ML_DIR / "modelo_random_forest.pkl"
-_ENCODERS_PATH = _ML_DIR / "label_encoders.pkl"
+_MODEL_PATH    = _ML_DIR / "modelo_random_forest_v2.pkl"
+_ENCODERS_PATH = _ML_DIR / "label_encoders_v2.pkl"
 
 # ── Orden exacto de features del entrenamiento ───────────────────────────────
 FEATURES_ORDER = [
@@ -60,7 +60,7 @@ FEATURES_ORDER = [
     "es_despues_5pm",
 ]
 
-MODEL_VERSION = "Random Forest v1"
+MODEL_VERSION = "Random Forest v2"
 _DEFAULT_VERIFICACION_ENC = 3
 
 _model = None
@@ -69,7 +69,7 @@ _model_loaded = False
 _encoders_loaded = False
 
 
-# ── Tabla de reglas ANS (v1: tipo × línea ramo) ───────────────────────────────
+# ── Tabla de reglas ANS (tipo × línea ramo) ──────────────────────────────────
 # Fuente: hoja ANS del Excel histórico (valores autoatención, simplificados).
 # Estructura: {tipo_norm: {linea: dias}}
 #   linea: "salud" (EPS/Salud) | "rrll" (SCTR/FOLA)
@@ -350,7 +350,7 @@ def predecir_ans(
     producto: Optional[str],
     nro_atenciones: Optional[int] = 1,
     fecha_recepcion: Optional[datetime] = None,
-    umbral: float = 0.70,
+    umbral: float = 0.45,
 ) -> dict:
     """
     Ejecuta la predicción ANS con el modelo Random Forest.
@@ -382,7 +382,7 @@ def predecir_ans(
             "probabilidad_incumplimiento": 0.0,
             "modelo_usado": "no_cargado",
             "variables_usadas": {},
-            "advertencias": ["Modelo RF no disponible. Verifique ml_models/modelo_random_forest.pkl"],
+            "advertencias": ["Modelo RF no disponible. Verifique ml_models/modelo_random_forest_v2.pkl"],
             "tiempo_prediccion_ms": 0.0,
         }
 

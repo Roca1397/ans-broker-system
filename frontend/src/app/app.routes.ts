@@ -30,10 +30,6 @@ export const routes: Routes = [
         loadComponent: () => import('./solicitudes/nueva/nueva.component').then(m => m.NuevaSolicitudComponent),
       },
       {
-        path: 'solicitudes/carga-masiva',
-        loadComponent: () => import('./solicitudes/carga-masiva/carga-masiva.component').then(m => m.CargaMasivaComponent),
-      },
-      {
         path: 'predicciones',
         loadComponent: () => import('./solicitudes/predicciones/predicciones.component').then(m => m.PrediccionesComponent),
       },

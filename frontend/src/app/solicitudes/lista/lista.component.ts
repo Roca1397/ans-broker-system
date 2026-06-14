@@ -46,7 +46,6 @@ const ALL_COLUMNS = [
         <p class="muted">{{ total() }} registros · ordenados por riesgo</p>
       </div>
       <div class="header-actions">
-        <a routerLink="/solicitudes/carga-masiva" class="btn btn-outline">⤒ Carga Masiva</a>
         <a routerLink="/solicitudes/nueva" class="btn btn-primary">+ Nueva Solicitud</a>
       </div>
     </div>

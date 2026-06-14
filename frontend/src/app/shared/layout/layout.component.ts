@@ -60,14 +60,6 @@ import { AlertasService } from '../../services/api.service';
             <span class="nav-label" *ngIf="!collapsed()">Nueva Solicitud</span>
           </a>
 
-          <a routerLink="/solicitudes/carga-masiva" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Carga Masiva' : ''">
-            <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
-              <path d="M10 3v10M6 8l4-5 4 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-            <span class="nav-label" *ngIf="!collapsed()">Carga Masiva</span>
-          </a>
-
           <a routerLink="/predicciones" routerLinkActive="active" class="nav-item" [title]="collapsed() ? 'Predicciones' : ''">
             <svg class="nav-icon" viewBox="0 0 20 20" fill="none">
               <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.8"/>

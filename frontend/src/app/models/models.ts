@@ -207,9 +207,3 @@ export interface PaginatedResponse<T> {
   pages: number;
 }
 
-export interface BulkUploadResult {
-  total: number;
-  exitosos: number;
-  errores: number;
-  detalles_errores: { fila: number; error: string }[];
-}

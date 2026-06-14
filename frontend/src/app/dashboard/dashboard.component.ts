@@ -21,13 +21,6 @@ import { DashboardStats } from '../models/models';
           </svg>
           Nueva Solicitud
         </a>
-        <a routerLink="/solicitudes/carga-masiva" class="btn btn-outline">
-          <svg viewBox="0 0 16 16" fill="none" width="14" height="14" style="margin-right:6px">
-            <path d="M8 2v9M4 6l4-4 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-          Carga Masiva
-        </a>
       </div>
     </div>
 

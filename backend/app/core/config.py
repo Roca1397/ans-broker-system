@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    MODEL_PATH: str = "./app/ml_models/modelo_random_forest.pkl"
+    MODEL_PATH: str = "./app/ml_models/modelo_random_forest_v2.pkl"
     ALLOWED_ORIGINS: List[str] = [
     "http://localhost:4200",
     "https://slaguardian.vercel.app"
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     EMAILS_SUBDIR: str = "emails"
 
     # ── ML ────────────────────────────────────────────────────────
-    PROBABILIDAD_UMBRAL_ANS: float = 0.70  # > 70% = "Fuera de ANS"
+    PROBABILIDAD_UMBRAL_ANS: float = 0.45  # >= 45% = "Fuera de ANS" (RF v2, threshold optimizado)
 
     class Config:
         env_file = ".env"

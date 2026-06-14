@@ -1,7 +1,7 @@
 """
 Router de Solicitudes.
 
-Mantiene los endpoints legados (POST /, GET /, /bulk-upload, etc.) y agrega:
+Mantiene los endpoints legados (POST /, GET /) y agrega:
 
   POST /api/solicitudes/outlook         <- Power Automate (header x-api-key)
   GET  /api/solicitudes/lista           <- listado SharePoint-like (con joins)
@@ -17,12 +17,10 @@ Mantiene los endpoints legados (POST /, GET /, /bulk-upload, etc.) y agrega:
 
 REEMPLAZA: backend/app/routers/solicitudes.py
 """
-import io
 import os
 import re
 import uuid
 from pathlib import Path
-import pandas as pd
 from fastapi import (
     APIRouter, Depends, HTTPException, UploadFile, File,
     Query, status,
@@ -46,13 +44,13 @@ from app.models.solicitud import (
 )
 from app.models.user import User
 from app.schemas.schemas import (
-    SolicitudOut, BulkUploadResult, PaginatedResponse,
+    SolicitudOut, PaginatedResponse,
     OutlookSolicitudIn, OutlookSolicitudOut,
     SolicitudUpdate, SolicitudCreateManual,
     ComentarioAdd,
 )
-from app.ml.predictor import predictor
 from app.services.prediction_service import predecir_ans, is_loaded as rf_loaded
+
 from app.models.solicitud import PrediccionANS
 from app.services.outlook_service import (
     generar_nro_ticket, resolver_tipo_solicitud_id,
@@ -68,6 +66,29 @@ router = APIRouter()
 # Helper ML
 # ════════════════════════════════════════════════════════════════════
 
+def _pred_sin_modelo() -> dict:
+    """Devuelto cuando el modelo RF v2 no está cargado. No se persiste en BD."""
+    return {
+        "probabilidad": None,
+        "prediccion": "Modelo no disponible",
+        "modelo_version": "no_disponible",
+        "tiempo_prediccion_ms": 0.0,
+    }
+
+
+def _pred_pendiente(campos_faltantes: list) -> dict:
+    """Devuelto cuando faltan campos obligatorios para el RF. No se persiste en BD."""
+    return {
+        "probabilidad": None,
+        "prediccion": "Predicción pendiente",
+        "modelo_version": "pendiente",
+        "tiempo_prediccion_ms": 0.0,
+        "advertencias": [
+            f"Campos insuficientes para predicción RF v2: {', '.join(campos_faltantes)}"
+        ],
+    }
+
+
 async def _predecir_con_rf(
     db: AsyncSession,
     tipo_solicitud_id: Optional[int],
@@ -78,34 +99,49 @@ async def _predecir_con_rf(
     fecha_recepcion,
 ) -> dict:
     """
-    Carga nombres desde IDs y ejecuta el modelo Random Forest.
-    Devuelve el mismo formato que predictor.predict_simple() para compatibilidad.
+    Resuelve IDs a nombres y ejecuta el Random Forest v2.
+
+    Si falta cualquier campo categórico obligatorio (tipo, prioridad, aseguradora, ramo),
+    retorna _pred_pendiente() sin tocar la BD.
+    Solo incluye _rf_result cuando el RF corrió y produjo un resultado válido.
     """
     tipo_nombre = prioridad_nombre = aseg_nombre = ramo_nombre = None
+    faltantes: list = []
 
     if tipo_solicitud_id:
         ts = (await db.execute(
             select(TipoSolicitud).where(TipoSolicitud.id == tipo_solicitud_id)
         )).scalar_one_or_none()
         tipo_nombre = ts.nombre if ts else None
+    if not tipo_nombre:
+        faltantes.append("tipo_solicitud")
 
     if prioridad_id:
         pr = (await db.execute(
             select(Prioridad).where(Prioridad.id == prioridad_id)
         )).scalar_one_or_none()
         prioridad_nombre = pr.nombre if pr else None
+    if not prioridad_nombre:
+        faltantes.append("prioridad")
 
     if aseguradora_id:
         aseg = (await db.execute(
             select(Aseguradora).where(Aseguradora.id == aseguradora_id)
         )).scalar_one_or_none()
         aseg_nombre = aseg.nombre if aseg else None
+    if not aseg_nombre:
+        faltantes.append("aseguradora")
 
     if ramo_id:
         ramo = (await db.execute(
             select(Ramo).where(Ramo.id == ramo_id)
         )).scalar_one_or_none()
         ramo_nombre = ramo.nombre if ramo else None
+    if not ramo_nombre:
+        faltantes.append("ramo")
+
+    if faltantes:
+        return _pred_pendiente(faltantes)
 
     result = predecir_ans(
         tipo_solicitud=tipo_nombre,
@@ -116,6 +152,10 @@ async def _predecir_con_rf(
         fecha_recepcion=fecha_recepcion,
         umbral=settings.PROBABILIDAD_UMBRAL_ANS,
     )
+
+    if result["prediccion_ans"] not in ("Dentro de ANS", "Fuera de ANS"):
+        return _pred_pendiente(result.get("advertencias", ["Error interno del modelo RF v2"]))
+
     return {
         "probabilidad": result["probabilidad_incumplimiento"],
         "prediccion": result["prediccion_ans"],
@@ -259,12 +299,7 @@ async def crear_desde_outlook(
             fecha_recepcion=payload.fecha_recepcion,
         )
     else:
-        pred = predictor.predict_simple(
-            asunto=payload.asunto,
-            cuerpo=payload.cuerpo_correo or "",
-            prioridad_nombre=payload.prioridad,
-            umbral=settings.PROBABILIDAD_UMBRAL_ANS,
-        )
+        pred = _pred_sin_modelo()
 
     import logging as _logging
     _log = _logging.getLogger(__name__)
@@ -318,8 +353,9 @@ async def crear_desde_outlook(
         cuerpo_correo=payload.cuerpo_correo,
         fecha_recepcion=payload.fecha_recepcion or datetime.now(timezone.utc),
         datos_adjuntos=adjuntos_meta if adjuntos_meta else None,
-        probabilidad=pred["probabilidad"],
-        prediccion=pred["prediccion"],
+        probabilidad=pred.get("probabilidad"),
+        prediccion=pred.get("prediccion"),
+
         estado="Pendiente",
         fuente="outlook",
         nro_atenciones=payload.nro_atenciones or 1,
@@ -516,8 +552,8 @@ async def editar_solicitud(
             nro_atenciones=sol.nro_atenciones,
             fecha_recepcion=sol.fecha_recepcion,
         )
-        sol.probabilidad = pred["probabilidad"]
-        sol.prediccion = pred["prediccion"]
+        sol.probabilidad = pred.get("probabilidad")
+        sol.prediccion = pred.get("prediccion")
         await db.commit()
         await db.refresh(sol)
         if "_rf_result" in pred:
@@ -835,12 +871,7 @@ async def crear_solicitud_manual(
             fecha_recepcion=data.fecha_recepcion,
         )
     else:
-        pred = predictor.predict_simple(
-            asunto=data.asunto or "",
-            cuerpo=data.cuerpo_correo or "",
-            prioridad_nombre=None,
-            umbral=settings.PROBABILIDAD_UMBRAL_ANS,
-        )
+        pred = _pred_sin_modelo()
 
     sol = Solicitud(
         nro_ticket=nro_ticket,
@@ -855,8 +886,9 @@ async def crear_solicitud_manual(
         cuerpo_correo=data.cuerpo_correo,
         fecha_recepcion=data.fecha_recepcion or datetime.now(timezone.utc),
         comentarios=data.comentarios,
-        probabilidad=pred["probabilidad"],
-        prediccion=pred["prediccion"],
+        probabilidad=pred.get("probabilidad"),
+        prediccion=pred.get("prediccion"),
+
         estado="Pendiente",
         fuente="manual",
         nro_atenciones=data.nro_atenciones or 1,
@@ -938,87 +970,3 @@ async def obtener_solicitud_legacy(
     if current_user.role == "ejecutivo" and str(sol.ejecutivo_id) != str(current_user.id):
         raise HTTPException(403, "No tienes acceso a esta solicitud")
     return _solicitud_to_detail(sol)
-
-
-@router.post("/bulk-upload", response_model=BulkUploadResult)
-async def carga_masiva(
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
-):
-    if not file.filename.endswith((".xlsx", ".xls", ".csv")):
-        raise HTTPException(400, "Formato no soportado. Use .xlsx, .xls o .csv")
-
-    content = await file.read()
-    try:
-        if file.filename.endswith(".csv"):
-            df = pd.read_csv(io.BytesIO(content))
-        else:
-            df = pd.read_excel(io.BytesIO(content))
-    except Exception as e:
-        raise HTTPException(400, f"Error al leer el archivo: {str(e)}")
-
-    required_cols = {"asunto"}
-    missing = required_cols - set(df.columns)
-    if missing:
-        raise HTTPException(400, f"Columnas faltantes: {missing}")
-
-    exitosos, errores, detalles = 0, 0, []
-    aseg_cache = {a.id: a for a in (await db.execute(select(Aseguradora))).scalars().all()}
-
-    for idx, row in df.iterrows():
-        try:
-            asunto = str(row.get("asunto", "")).strip()
-            if not asunto:
-                raise ValueError("El campo 'asunto' no puede estar vacío")
-
-            remitente = str(row.get("remitente", "")).strip() or None
-            cliente = str(row.get("cliente", "")).strip() or None
-            comentarios = str(row.get("comentarios", "")).strip() or None
-
-            aseg_id = None
-            if "aseguradora_id" in df.columns and pd.notna(row.get("aseguradora_id")):
-                aseg_id = int(row["aseguradora_id"])
-                if aseg_id not in aseg_cache:
-                    raise ValueError(f"Aseguradora ID {aseg_id} no existe")
-
-            fecha_recepcion = None
-            if "fecha_recepcion" in df.columns and pd.notna(row.get("fecha_recepcion")):
-                fecha_recepcion = pd.to_datetime(row["fecha_recepcion"]).to_pydatetime()
-                if fecha_recepcion.tzinfo is None:
-                    fecha_recepcion = fecha_recepcion.replace(tzinfo=timezone.utc)
-
-            if remitente and not cliente:
-                cli_auto, aseg_auto, _ = await resolver_cliente_por_remitente(db, remitente)
-                cliente = cli_auto
-                aseg_id = aseg_id or aseg_auto
-
-            nro_atenciones = 1
-            if "nro_atenciones" in df.columns and pd.notna(row.get("nro_atenciones")):
-                val = int(row["nro_atenciones"])
-                nro_atenciones = max(1, val)
-
-            pred = predictor.predict_simple(asunto=asunto, cuerpo=comentarios or "")
-
-            solicitud = Solicitud(
-                nro_ticket=await generar_nro_ticket(db),
-                asunto=asunto,
-                remitente=remitente,
-                cliente=cliente or "Pendiente de asignar",
-                aseguradora_id=aseg_id,
-                comentarios=comentarios,
-                fecha_recepcion=fecha_recepcion or datetime.now(timezone.utc),
-                probabilidad=pred["probabilidad"],
-                prediccion=pred["prediccion"],
-                fuente="excel" if not file.filename.endswith(".csv") else "csv",
-                estado="Pendiente",
-                nro_atenciones=nro_atenciones,
-            )
-            db.add(solicitud)
-            await db.flush()
-            exitosos += 1
-        except Exception as e:
-            errores += 1
-            detalles.append({"fila": idx + 2, "error": str(e)})
-    await db.commit()
-    return BulkUploadResult(total=len(df), exitosos=exitosos, errores=errores, detalles_errores=detalles)

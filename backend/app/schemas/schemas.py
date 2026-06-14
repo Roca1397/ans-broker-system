@@ -357,8 +357,8 @@ class PredictionResponse(BaseModel):
 
 # ── PREDICCIONES RF (nuevo) ───────────────────────────────────────
 class PredictionRFResponse(BaseModel):
-    """Respuesta del endpoint /predict-solicitud (Random Forest v1)."""
-    prediccion_ans: str            # "Dentro de ANS" | "Fuera de ANS"
+    """Respuesta del endpoint /predict-solicitud (Random Forest v2)."""
+    prediccion_ans: str            # "Dentro de ANS" | "Fuera de ANS" | "Predicción pendiente"
     probabilidad_incumplimiento: float   # 0.0–1.0
     modelo_usado: str
     variables_usadas: dict
@@ -380,14 +380,6 @@ class SolicitudConPrediccionOut(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-# ── BULK UPLOAD ────────────────────────────────────────────────────
-class BulkUploadResult(BaseModel):
-    total: int
-    exitosos: int
-    errores: int
-    detalles_errores: List[dict]
 
 
 # ── DASHBOARD ─────────────────────────────────────────────────────

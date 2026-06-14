@@ -1,15 +1,11 @@
 """
-Servicio de predicción ANS — singleton legacy.
+Servicio legacy de predicción ANS — solo heurística de palabras clave.
 
-Interfaz mantenida para compatibilidad con los flujos existentes
-(Outlook, creación manual, carga masiva).
+predict_simple() NO usa el modelo Random Forest v2.
+El resultado lleva modelo_version='legacy_no_persistente' y nunca se guarda en BD.
 
-predict_simple(asunto, cuerpo, prioridad_nombre)
-  → Usa el modelo Random Forest cuando está cargado.
-  → Cae a heurística de texto cuando el modelo no está disponible.
-
-Para predicciones con datos estructurados completos usar directamente:
-  from app.services.prediction_service import predecir_ans
+Para predicciones reales con RF v2 usar el helper _predecir_con_rf()
+del router de solicitudes, que llama a prediction_service.predecir_ans().
 """
 import time
 import logging
@@ -17,11 +13,11 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-MODEL_VERSION_HEURISTIC = "1.0.0-heuristic"
+MODEL_VERSION_LEGACY = "legacy_no_persistente"
 
 
 class ANSPredictorService:
-    """Singleton que expone predict_simple() para el flujo de solicitudes."""
+    """Singleton legacy — solo expone predict_simple() para el endpoint /predict."""
 
     _instance: Optional["ANSPredictorService"] = None
 
@@ -30,75 +26,42 @@ class ANSPredictorService:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    # load_model se mantiene por compatibilidad con main.py (lifespan)
     def load_model(self, model_path: str) -> bool:
         """
-        Intenta cargar el modelo desde model_path.
-        En la nueva arquitectura, prediction_service.py ya carga los artefactos
-        de ml_models/ al importarse. Este método es un hook de compatibilidad.
+        Hook de compatibilidad con main.py (lifespan).
+        La carga real del RF la hace prediction_service.py al importarse.
         """
         from app.services.prediction_service import is_loaded, reload
         if is_loaded():
-            logger.info("Modelo RF ya cargado por prediction_service.")
+            logger.info("Modelo RF v2 ya cargado por prediction_service.")
             return True
-        # Intentar recarga explícita
         ok = reload()
         if ok:
-            logger.info("Modelo RF cargado via prediction_service.reload()")
+            logger.info("Modelo RF v2 cargado via prediction_service.reload()")
         else:
             logger.warning(
-                "prediction_service no pudo cargar el modelo. "
-                "predict_simple usará heurística de fallback."
+                "prediction_service no pudo cargar el modelo RF v2. "
+                "predict_simple usará solo heurística."
             )
         return ok
-
-    @property
-    def _rf_disponible(self) -> bool:
-        try:
-            from app.services.prediction_service import is_loaded
-            return is_loaded()
-        except ImportError:
-            return False
 
     def predict_simple(
         self,
         asunto: str = "",
         cuerpo: str = "",
         prioridad_nombre: Optional[str] = None,
-        umbral: float = 0.70,
+        umbral: float = 0.45,
     ) -> dict:
         """
-        Interfaz legada usada por los routers de solicitudes.
+        [LEGACY] Heurística de palabras clave pura.
 
-        Cuando el modelo RF está disponible intenta usarlo con los datos
-        textuales disponibles (prioridad) más variables de fecha actual.
-        Cuando no está disponible usa la heurística de palabras clave.
-
-        Para predicciones de mayor precisión usar prediction_service.predecir_ans()
-        con todos los campos estructurados.
+        NO usa el modelo Random Forest v2.
+        El resultado no se guarda en BD (modelo_version = 'legacy_no_persistente').
+        Solo debe usarse desde el endpoint GET /predicciones/predict.
         """
-        if self._rf_disponible:
-            return self._predict_con_rf(prioridad_nombre, umbral)
-        return self._predict_heuristico(asunto, cuerpo, prioridad_nombre, umbral)
-
-    def _predict_con_rf(self, prioridad_nombre: Optional[str], umbral: float) -> dict:
-        """Delega al RF con los datos disponibles (fecha actual + prioridad)."""
-        from app.services.prediction_service import predecir_ans
-        result = predecir_ans(
-            tipo_solicitud=None,
-            prioridad=prioridad_nombre,
-            aseguradora=None,
-            producto=None,
-            nro_atenciones=1,
-            fecha_recepcion=None,
-            umbral=umbral,
-        )
-        return {
-            "probabilidad": result["probabilidad_incumplimiento"],
-            "prediccion": result["prediccion_ans"],
-            "modelo_version": result["modelo_usado"],
-            "tiempo_prediccion_ms": result["tiempo_prediccion_ms"],
-        }
+        result = self._predict_heuristico(asunto, cuerpo, prioridad_nombre, umbral)
+        result["modelo_version"] = MODEL_VERSION_LEGACY
+        return result
 
     def _predict_heuristico(
         self,
@@ -107,7 +70,7 @@ class ANSPredictorService:
         prioridad_nombre: Optional[str],
         umbral: float,
     ) -> dict:
-        """Heurística de palabras clave — fallback cuando el RF no está disponible."""
+        """Heurística de palabras clave — fallback textual, no es predicción real."""
         start_time = time.time()
         score = 0.30
 
@@ -138,7 +101,7 @@ class ANSPredictorService:
         return {
             "probabilidad": round(score, 4),
             "prediccion": prediccion,
-            "modelo_version": MODEL_VERSION_HEURISTIC,
+            "modelo_version": MODEL_VERSION_LEGACY,
             "tiempo_prediccion_ms": round(elapsed_ms, 2),
         }
 
