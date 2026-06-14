@@ -1,7 +1,7 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '../icon.component';
-import { Executive } from '../dashboard.models';
+import { CargaEjecutivo } from '../dashboard.models';
 
 @Component({
   selector: 'app-workload',
@@ -17,27 +17,36 @@ import { Executive } from '../dashboard.models';
         </span>
       </div>
 
-      <div class="workload-list">
-        <div class="exec-row" *ngFor="let e of executives">
-          <div class="exec-top">
-            <span class="exec-name">{{ e.nombre }}</span>
-            <span class="exec-meta">{{ e.pendientes }} pend. &middot; {{ e.fueraAns }} fuera ANS</span>
-          </div>
-          <div class="exec-bar-wrap">
-            <div class="exec-bar" [class]="barClass(e.carga)"
-                 [style.width]="e.carga + '%'"></div>
+      <ng-container *ngIf="ejecutivos.length > 0; else noData">
+        <div class="workload-list">
+          <div class="exec-row" *ngFor="let e of ejecutivos">
+            <div class="exec-top">
+              <span class="exec-name">{{ e.ejecutivo }}</span>
+              <span class="exec-meta">
+                {{ e.total }} total
+                <span *ngIf="e.en_riesgo > 0" class="exec-riesgo">&middot; {{ e.en_riesgo }} en riesgo</span>
+              </span>
+            </div>
+            <div class="exec-bar-wrap">
+              <div class="exec-bar" [class]="barClass(e.carga_pct)"
+                   [style.width]="e.carga_pct + '%'"></div>
+            </div>
           </div>
         </div>
-      </div>
+      </ng-container>
+
+      <ng-template #noData>
+        <p class="no-data-msg">Sin solicitudes asignadas</p>
+      </ng-template>
     </div>
   `,
 })
 export class WorkloadComponent {
-  @Input() executives: Executive[] = [];
+  @Input() ejecutivos: CargaEjecutivo[] = [];
 
-  barClass(carga: number): string {
-    if (carga >= 85) return 'high';
-    if (carga >= 60) return 'medium';
+  barClass(pct: number): string {
+    if (pct >= 85) return 'high';
+    if (pct >= 55) return 'medium';
     return 'low';
   }
 }

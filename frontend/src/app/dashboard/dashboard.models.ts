@@ -1,78 +1,73 @@
-export interface TrendPoint {
-  label: string;
-  ingresadas: number;
-  fueraAns: number;
-  riesgoProm: number;
-}
+// Tipos del endpoint GET /dashboard/resumen
 
-export interface Kpi {
+export interface SolicitudRiesgo {
   id: string;
-  label: string;
-  value: number | string;
-  unit?: string;
-  trend?: number;
-  trendLabel?: string;
-  color?: 'default' | 'success' | 'warning' | 'danger' | 'info';
-  sparkline?: number[];
+  nro_ticket?: string;
+  cliente?: string;
+  tipo_solicitud?: string;
+  ejecutivo?: string;
+  aseguradora?: string;
+  ramo?: string;
+  probabilidad?: number;
+  prediccion?: string;
+  estado?: string;
+  prioridad?: string;
+  fecha_recepcion?: string;
 }
 
-export interface RiskBand {
-  label: string;
-  count: number;
-  pct: number;
-  color: string;
+export interface SolicitudSinAsignar {
+  id: string;
+  nro_ticket?: string;
+  cliente?: string;
+  tipo_solicitud?: string;
+  prioridad?: string;
+  fecha_recepcion?: string;
 }
 
-export interface RiskSummary {
-  avgProbability: number;
-  fueraAns: number;
-  dentroAns: number;
+export interface CargaEjecutivo {
+  ejecutivo: string;
   total: number;
-  bands: RiskBand[];
+  en_riesgo: number;
+  carga_pct: number;
 }
 
-export interface StatusItem {
-  label: string;
-  count: number;
-  color: string;
-}
-
-export interface CriticalRequest {
-  id: string;
-  nroTicket: string;
-  cliente: string;
-  aseguradora: string;
-  probabilidad: number;
-  tipo: string;
-  horasRestantes: number;
-}
-
-export interface Executive {
-  id: string;
+export interface EstadoCount {
   nombre: string;
+  count: number;
+}
+
+export interface TendenciaDia {
+  fecha: string;
+  ingresadas: number;
+  fuera_ans: number;
+}
+
+export interface DistRiesgo {
+  bajo: number;
+  medio: number;
+  alto: number;
+  critico: number;
+}
+
+export interface DashboardResumen {
+  // KPIs
+  total: number;
+  fuera_ans: number;
+  dentro_ans: number;
   pendientes: number;
-  fueraAns: number;
-  carga: number;
+  en_proceso: number;
+  finalizadas: number;
+  sin_asignar: number;
+  alto_riesgo: number;
+  criticos: number;
+  promedio_riesgo: number;
+  alertas_no_leidas: number;
+  // Distribuciones
+  estados: EstadoCount[];
+  dist_riesgo: DistRiesgo;
+  // Listas operativas
+  solicitudes_riesgo: SolicitudRiesgo[];
+  sin_asignar_lista: SolicitudSinAsignar[];
+  carga_ejecutivos: CargaEjecutivo[];
+  tendencia_semanal: TendenciaDia[];
 }
-
-export interface AlertItem {
-  id: string;
-  tipo: 'critico' | 'advertencia' | 'info';
-  mensaje: string;
-  tiempo: string;
-  leida: boolean;
-}
-
-export interface DashboardData {
-  kpis: Kpi[];
-  risk: RiskSummary;
-  status: StatusItem[];
-  criticalRequests: CriticalRequest[];
-  totalCritical: number;
-  executives: Executive[];
-  alerts: AlertItem[];
-  newAlerts: number;
-  weeklyTrend: TrendPoint[];
-}
-
-export type DateRange = '7d' | '30d' | '90d';

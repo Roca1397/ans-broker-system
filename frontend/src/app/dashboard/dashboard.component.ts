@@ -1,48 +1,53 @@
 import {
-  Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef,
+  Component, OnInit, OnDestroy,
+  ChangeDetectionStrategy, ChangeDetectorRef,
   ViewEncapsulation,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { forkJoin, Subject, takeUntil } from 'rxjs';
 
-import { DashboardMockService } from './dashboard.service';
-import { DashboardData, DateRange } from './dashboard.models';
-
-import { KpiCardComponent }          from './components/kpi-card.component';
-import { RiskPanelComponent }        from './components/risk-panel.component';
-import { StatusCardComponent }       from './components/status-card.component';
-import { CriticalRequestsComponent } from './components/critical-requests.component';
-import { WorkloadComponent }         from './components/workload.component';
-import { AlertsComponent }           from './components/alerts.component';
-import { WeeklyTrendComponent }      from './components/weekly-trend.component';
+import { DashboardDataService } from './dashboard.service';
+import { DashboardResumen } from './dashboard.models';
+import { Alerta } from '../models/models';
+import { KpiData, KpiCardComponent }      from './components/kpi-card.component';
+import { RiskPanelComponent }             from './components/risk-panel.component';
+import { StatusCardComponent }            from './components/status-card.component';
+import { CriticalRequestsComponent }      from './components/critical-requests.component';
+import { WorkloadComponent }              from './components/workload.component';
+import { AlertsComponent }                from './components/alerts.component';
+import { WeeklyTrendComponent }           from './components/weekly-trend.component';
+import { UnassignedComponent }            from './components/unassigned.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['./dashboard.styles.scss'],
   imports: [
     CommonModule, RouterLink,
     KpiCardComponent, RiskPanelComponent, StatusCardComponent,
     CriticalRequestsComponent, WorkloadComponent, AlertsComponent,
-    WeeklyTrendComponent,
+    WeeklyTrendComponent, UnassignedComponent,
   ],
-  encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['./dashboard.styles.scss'],
   template: `
 <div class="sla-dashboard">
 
   <!-- Header -->
   <header class="dash-header">
     <div>
-      <h1 class="dash-title">Dashboard ANS</h1>
-      <p class="dash-subtitle">Gestion predictiva de solicitudes &middot; Actualizado ahora</p>
+      <h1 class="dash-title">Centro de Control ANS</h1>
+      <p class="dash-subtitle">SLAGuardian &middot; Datos en tiempo real</p>
     </div>
     <div class="dash-actions">
-      <button *ngFor="let r of ranges"
-              class="range-btn" [class.active]="activeRange === r.value"
-              (click)="setRange(r.value)">
-        {{ r.label }}
+      <button class="range-btn" (click)="refresh()" [disabled]="loading" title="Actualizar">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             [class.spinning]="loading">
+          <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+        Actualizar
       </button>
       <a routerLink="/solicitudes/nueva" class="btn btn-primary" style="font-size:.82rem;padding:7px 14px">
         + Nueva Solicitud
@@ -50,34 +55,59 @@ import { WeeklyTrendComponent }      from './components/weekly-trend.component';
     </div>
   </header>
 
-  <!-- Loading -->
-  <div *ngIf="loading" class="loading-state">
-    <div class="spinner"></div>
-    <p>Cargando...</p>
+  <!-- Error global -->
+  <div *ngIf="error" class="dash-error">
+    <svg viewBox="0 0 20 20" fill="none" width="16" height="16" style="flex-shrink:0">
+      <path d="M10 3L2 17h16L10 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M10 9v4M10 15h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    No se pudo cargar el dashboard. Verifique la conexion con el backend.
   </div>
 
-  <ng-container *ngIf="!loading && data">
+  <!-- Loading -->
+  <div *ngIf="loading && !data" class="loading-state">
+    <div class="spinner"></div>
+    <p>Cargando datos...</p>
+  </div>
 
-    <!-- KPI row -->
+  <ng-container *ngIf="data">
+
+    <!-- KPI row (6 tarjetas) -->
     <div class="kpi-grid">
-      <app-kpi-card *ngFor="let k of data.kpis" [kpi]="k"></app-kpi-card>
+      <app-kpi-card *ngFor="let k of kpis" [kpi]="k"></app-kpi-card>
     </div>
 
-    <!-- Middle row: Risk | Status | Critical -->
-    <div class="mid-row">
-      <app-risk-panel   [risk]="data.risk"></app-risk-panel>
-      <app-status-card  [status]="data.status"></app-status-card>
+    <!-- Fila principal: solicitudes en riesgo + carga ejecutivos -->
+    <div class="main-row">
       <app-critical-requests
-        [requests]="data.criticalRequests"
-        [total]="data.totalCritical">
+        class="main-col-wide"
+        [requests]="data.solicitudes_riesgo">
       </app-critical-requests>
+      <app-workload
+        class="main-col-narrow"
+        [ejecutivos]="data.carga_ejecutivos">
+      </app-workload>
     </div>
 
-    <!-- Bottom row: Trend | Workload | Alerts -->
+    <!-- Fila secundaria: distribución riesgo / sin asignar / alertas -->
+    <div class="sec-row">
+      <app-risk-panel
+        [dist]="data.dist_riesgo"
+        [avgProb]="data.promedio_riesgo">
+      </app-risk-panel>
+
+      <app-status-card [estados]="data.estados"></app-status-card>
+
+      <app-unassigned
+        [lista]="data.sin_asignar_lista"
+        [total]="data.sin_asignar">
+      </app-unassigned>
+    </div>
+
+    <!-- Alertas + Tendencia semanal -->
     <div class="bottom-row">
-      <app-weekly-trend [data]="data.weeklyTrend"></app-weekly-trend>
-      <app-workload     [executives]="data.executives"></app-workload>
-      <app-alerts       [alerts]="data.alerts" [newCount]="data.newAlerts"></app-alerts>
+      <app-alerts [alertas]="alertas"></app-alerts>
+      <app-weekly-trend [data]="data.tendencia_semanal" class="trend-col"></app-weekly-trend>
     </div>
 
   </ng-container>
@@ -86,19 +116,15 @@ import { WeeklyTrendComponent }      from './components/weekly-trend.component';
   `,
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  data: DashboardData | null = null;
-  loading = true;
-  activeRange: DateRange = '30d';
-  readonly ranges = [
-    { label: '7 dias',  value: '7d'  as DateRange },
-    { label: '30 dias', value: '30d' as DateRange },
-    { label: '90 dias', value: '90d' as DateRange },
-  ];
+  data: DashboardResumen | null = null;
+  alertas: Alerta[] = [];
+  loading = false;
+  error = false;
 
   private destroy$ = new Subject<void>();
 
   constructor(
-    private dashService: DashboardMockService,
+    private dashService: DashboardDataService,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -109,19 +135,75 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  setRange(r: DateRange) {
-    this.activeRange = r;
-    this.load();
+  refresh() { this.load(); }
+
+  get kpis(): KpiData[] {
+    if (!this.data) return [];
+    const d = this.data;
+    return [
+      {
+        label: 'Total Solicitudes',
+        value: d.total,
+        icon: 'layers',
+        color: 'default',
+      },
+      {
+        label: 'Pendientes',
+        value: d.pendientes,
+        icon: 'clock',
+        color: 'warning',
+        sub: d.sin_asignar > 0 ? `${d.sin_asignar} sin asignar` : undefined,
+      },
+      {
+        label: 'En Proceso',
+        value: d.en_proceso,
+        icon: 'activity',
+        color: 'info',
+      },
+      {
+        label: 'Finalizadas',
+        value: d.finalizadas,
+        icon: 'check-circle',
+        color: 'success',
+      },
+      {
+        label: 'Fuera de ANS',
+        value: d.fuera_ans,
+        icon: 'alert-triangle',
+        color: d.fuera_ans > 0 ? 'danger' : 'default',
+      },
+      {
+        label: 'Alto / Critico',
+        value: d.alto_riesgo + d.criticos,
+        icon: 'zap',
+        color: (d.alto_riesgo + d.criticos) > 0 ? 'danger' : 'default',
+        sub: d.criticos > 0 ? `${d.criticos} criticos` : undefined,
+      },
+    ];
   }
 
   private load() {
     this.loading = true;
+    this.error = false;
     this.cdr.markForCheck();
-    this.dashService.getDashboard(this.activeRange)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (d) => { this.data = d; this.loading = false; this.cdr.markForCheck(); },
-        error: ()  => { this.loading = false; this.cdr.markForCheck(); },
-      });
+
+    forkJoin({
+      resumen: this.dashService.getResumen(),
+      alertas: this.dashService.getAlertasRecientes(6),
+    })
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: ({ resumen, alertas }) => {
+        this.data    = resumen;
+        this.alertas = alertas;
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loading = false;
+        this.error   = true;
+        this.cdr.markForCheck();
+      },
+    });
   }
 }

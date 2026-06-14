@@ -1,7 +1,26 @@
 import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IconComponent } from '../icon.component';
-import { StatusItem } from '../dashboard.models';
+import { EstadoCount } from '../dashboard.models';
+
+const ESTADO_COLORS: Record<string, string> = {
+  pendiente:   '#f59e0b',
+  'en proceso':'#3b82f6',
+  proceso:     '#3b82f6',
+  finalizado:  '#22c55e',
+  finalizada:  '#22c55e',
+  completado:  '#22c55e',
+  vencido:     '#ef4444',
+  cerrado:     '#6b7280',
+};
+
+function colorFor(nombre: string): string {
+  const key = nombre.toLowerCase().trim();
+  for (const [k, v] of Object.entries(ESTADO_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  return '#8b5cf6';
+}
 
 @Component({
   selector: 'app-status-card',
@@ -17,35 +36,45 @@ import { StatusItem } from '../dashboard.models';
         </span>
       </div>
 
-      <!-- Segmented bar -->
-      <div class="status-seg-bar">
-        <div class="seg" *ngFor="let s of status"
-             [style.width]="pct(s) + '%'"
-             [style.background]="s.color"
-             [title]="s.label + ': ' + s.count">
+      <ng-container *ngIf="estados.length > 0; else noData">
+        <!-- Barra segmentada -->
+        <div class="status-seg-bar">
+          <div class="seg" *ngFor="let e of estados"
+               [style.width]="pct(e) + '%'"
+               [style.background]="color(e.nombre)"
+               [title]="e.nombre + ': ' + e.count">
+          </div>
         </div>
-      </div>
 
-      <!-- Legend -->
-      <div class="status-legend">
-        <div class="legend-row" *ngFor="let s of status">
-          <span class="leg-dot" [style.background]="s.color"></span>
-          <span class="leg-label">{{ s.label }}</span>
-          <span class="leg-count">{{ s.count }}</span>
-          <span class="leg-pct">{{ pct(s).toFixed(0) }}%</span>
+        <!-- Leyenda -->
+        <div class="status-legend">
+          <div class="legend-row" *ngFor="let e of estados">
+            <span class="leg-dot" [style.background]="color(e.nombre)"></span>
+            <span class="leg-label">{{ e.nombre }}</span>
+            <span class="leg-count">{{ e.count }}</span>
+            <span class="leg-pct">{{ pct(e).toFixed(0) }}%</span>
+          </div>
         </div>
-      </div>
+      </ng-container>
+
+      <ng-template #noData>
+        <p class="no-data-msg">Sin datos disponibles</p>
+      </ng-template>
     </div>
   `,
 })
 export class StatusCardComponent {
-  @Input() status: StatusItem[] = [];
+  @Input() estados: EstadoCount[] = [];
 
   get total(): number {
-    return this.status.reduce((s, i) => s + i.count, 0) || 1;
+    return this.estados.reduce((s, e) => s + e.count, 0) || 1;
   }
 
-  pct(item: StatusItem): number {
-    return (item.count / this.total) * 100;
+  pct(e: EstadoCount): number {
+    return (e.count / this.total) * 100;
+  }
+
+  color(nombre: string): string {
+    return colorFor(nombre);
   }
 }
