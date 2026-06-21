@@ -215,14 +215,10 @@ async def admin_eliminar_cliente(item_id: int, db: AsyncSession = Depends(get_db
 def _to_cr_out(obj: ClienteRemitente) -> dict:
     return {
         "id": obj.id,
-        "cliente": obj.cliente,
-        "remitente": obj.remitente,
         "cliente_id": obj.cliente_id,
-        "aseguradora_id": obj.aseguradora_id,
-        "ramo_id": obj.ramo_id,
-        "activo": obj.activo,
-        "aseguradora_nombre": obj.aseguradora.nombre if obj.aseguradora else None,
-        "ramo_nombre": obj.ramo.nombre if obj.ramo else None,
+        "cliente_nombre": obj.cliente_rel.nombre if obj.cliente_rel else "",
+        "remitente": obj.remitente,
+        "created_at": obj.created_at,
     }
 
 
@@ -230,9 +226,8 @@ def _to_cr_out(obj: ClienteRemitente) -> dict:
 async def admin_listar_asociaciones(db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
     result = await db.execute(
         select(ClienteRemitente).options(
-            selectinload(ClienteRemitente.aseguradora),
-            selectinload(ClienteRemitente.ramo),
-        ).order_by(ClienteRemitente.cliente)
+            selectinload(ClienteRemitente.cliente_rel),
+        ).order_by(ClienteRemitente.id)
     )
     return [_to_cr_out(o) for o in result.scalars().all()]
 
@@ -244,24 +239,19 @@ async def admin_crear_asociacion(
     _=Depends(get_current_admin),
 ):
     obj = ClienteRemitente(
-        cliente=data.cliente,
-        remitente=str(data.remitente).lower(),
         cliente_id=data.cliente_id,
-        aseguradora_id=data.aseguradora_id,
-        ramo_id=data.ramo_id,
-        activo=data.activo,
+        remitente=str(data.remitente).lower(),
     )
     db.add(obj)
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(409, f"Ya existe la asociación '{data.remitente}' -> '{data.cliente}'")
+        raise HTTPException(409, f"Ya existe una asociación para el remitente '{data.remitente}'")
 
     result = await db.execute(
         select(ClienteRemitente).options(
-            selectinload(ClienteRemitente.aseguradora),
-            selectinload(ClienteRemitente.ramo),
+            selectinload(ClienteRemitente.cliente_rel),
         ).where(ClienteRemitente.id == obj.id)
     )
     return _to_cr_out(result.scalar_one())
@@ -282,12 +272,15 @@ async def admin_actualizar_asociacion(
         payload["remitente"] = str(payload["remitente"]).lower()
     for k, v in payload.items():
         setattr(obj, k, v)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, f"Ya existe una asociación para ese remitente")
 
     result = await db.execute(
         select(ClienteRemitente).options(
-            selectinload(ClienteRemitente.aseguradora),
-            selectinload(ClienteRemitente.ramo),
+            selectinload(ClienteRemitente.cliente_rel),
         ).where(ClienteRemitente.id == item_id)
     )
     return _to_cr_out(result.scalar_one())

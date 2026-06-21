@@ -101,7 +101,6 @@ class Ramo(Base):
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     solicitudes = relationship("Solicitud", back_populates="ramo")
-    asociaciones = relationship("ClienteRemitente", back_populates="ramo")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -126,28 +125,23 @@ class Cliente(Base):
 
 class ClienteRemitente(Base):
     """
-    Asociación remitente (correo) -> cliente, aseguradora y ramo.
+    Asociación remitente (correo) → cliente.
     Cuando llega un correo desde Power Automate se busca el remitente aquí
-    para autocompletar los datos de la solicitud.
+    para identificar el cliente al que pertenece.
+    Aseguradora y ramo se extraen del asunto del correo, no de esta tabla.
     """
     __tablename__ = "clientes_remitentes"
     __table_args__ = (
-        UniqueConstraint("remitente", "cliente", name="uq_remitente_cliente"),
+        UniqueConstraint("remitente", name="uq_remitente"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    cliente = Column(String(255), nullable=False)
-    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     remitente = Column(String(255), nullable=False, index=True)
-    aseguradora_id = Column(Integer, ForeignKey("aseguradoras.id"), nullable=True)
-    ramo_id = Column(Integer, ForeignKey("ramos.id"), nullable=True)
-    activo = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     cliente_rel = relationship("Cliente", back_populates="asociaciones")
-    aseguradora = relationship("Aseguradora")
-    ramo = relationship("Ramo", back_populates="asociaciones")
 
 
 # ════════════════════════════════════════════════════════════════════

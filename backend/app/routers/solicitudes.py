@@ -53,7 +53,8 @@ from app.services.prediction_service import predecir_ans, is_loaded as rf_loaded
 
 from app.models.solicitud import PrediccionANS
 from app.services.outlook_service import (
-    generar_nro_ticket, resolver_tipo_solicitud_id,
+    generar_nro_ticket,
+    extraer_desde_asunto,
     resolver_cliente_por_remitente, resolver_prioridad_id,
     resolver_estado_pendiente_id,
     guardar_eml, guardar_adjunto,
@@ -280,13 +281,31 @@ async def crear_desde_outlook(
 ):
     nro_ticket = await generar_nro_ticket(db)
 
-    cliente, aseguradora_id, ramo_id = await resolver_cliente_por_remitente(
-        db, payload.remitente
+    # 1. Resolver cliente desde tabla de asociaciones remitente→cliente
+    cliente = await resolver_cliente_por_remitente(db, payload.remitente)
+
+    # 2. Extraer tipo, ramo, aseguradora y nro_atenciones desde el asunto
+    extraido = await extraer_desde_asunto(db, payload.asunto or "")
+
+    # 3. Aseguradora y ramo vienen únicamente del asunto (no de clientes_remitentes)
+    tipo_solicitud_id = extraido["tipo_solicitud_id"]
+    aseguradora_id    = extraido["aseg_id"]
+    ramo_id           = extraido["ramo_id"]
+
+    # nro_atenciones: preferir el extraído del asunto si es explícito (> 1)
+    nro_atenciones = (
+        extraido["nro_atenciones"]
+        if extraido["nro_atenciones"] > 1
+        else (payload.nro_atenciones or 1)
     )
 
-    tipo_solicitud_id = await resolver_tipo_solicitud_id(db, payload.asunto)
     estado_id = await resolver_estado_pendiente_id(db)
-    prioridad_id = await resolver_prioridad_id(db, payload.prioridad)
+
+    # 4. Prioridad: Normal por defecto cuando el cliente no se identifica
+    if cliente == "Pendiente de asignar":
+        prioridad_id = await resolver_prioridad_id(db, "Normal")
+    else:
+        prioridad_id = await resolver_prioridad_id(db, payload.prioridad or "Normal")
 
     if rf_loaded():
         pred = await _predecir_con_rf(
@@ -295,7 +314,7 @@ async def crear_desde_outlook(
             prioridad_id=prioridad_id,
             aseguradora_id=aseguradora_id,
             ramo_id=ramo_id,
-            nro_atenciones=payload.nro_atenciones or 1,
+            nro_atenciones=nro_atenciones,
             fecha_recepcion=payload.fecha_recepcion,
         )
     else:
@@ -358,7 +377,7 @@ async def crear_desde_outlook(
 
         estado="Pendiente",
         fuente="outlook",
-        nro_atenciones=payload.nro_atenciones or 1,
+        nro_atenciones=nro_atenciones,
     )
     db.add(solicitud)
     await db.commit()

@@ -4,10 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { AdminService, CatalogosService } from '../../services/api.service';
 import { ClienteRemitente, Cliente } from '../../models/models';
 
-/**
- * ARCHIVO NUEVO: frontend/src/app/admin/clientes-remitentes/clientes-remitentes.component.ts
- * Gestión de asociaciones cliente <-> remitente (sólo admin).
- */
 @Component({
   selector: 'app-clientes-remitentes',
   standalone: true,
@@ -17,9 +13,10 @@ import { ClienteRemitente, Cliente } from '../../models/models';
       <div>
         <h1>Cliente · Remitente</h1>
         <p class="muted">
-          Gestiona las asociaciones entre correos remitentes y clientes.
-          Cuando llegue un correo desde Outlook, el sistema autocompletará
-          el cliente, aseguradora y ramo según la asociación que registres aquí.
+          Asocia un correo remitente con un cliente del sistema.
+          Cuando llegue un correo desde Outlook, el cliente se asignará
+          automáticamente según el remitente. Aseguradora, ramo y tipo
+          de solicitud se detectan desde el asunto del correo.
         </p>
       </div>
     </div>
@@ -29,10 +26,10 @@ import { ClienteRemitente, Cliente } from '../../models/models';
       <div class="grid">
         <div class="field">
           <label>Cliente <span class="req">*</span></label>
-          <input type="text" [(ngModel)]="form.cliente" placeholder="Nombre del cliente" list="clientesList" />
-          <datalist id="clientesList">
-            <option *ngFor="let c of clientes" [value]="c.nombre"></option>
-          </datalist>
+          <select [(ngModel)]="form.cliente_id">
+            <option [ngValue]="null" disabled>-- Selecciona un cliente --</option>
+            <option *ngFor="let c of clientes" [ngValue]="c.id">{{ c.nombre }}</option>
+          </select>
         </div>
         <div class="field">
           <label>Remitente (correo) <span class="req">*</span></label>
@@ -41,7 +38,7 @@ import { ClienteRemitente, Cliente } from '../../models/models';
       </div>
       <div class="form-actions">
         <button class="btn btn-primary" (click)="save()" [disabled]="!canSubmit() || saving()">
-          {{ saving() ? 'Guardando...' : (editingId() ? '💾 Actualizar' : '+ Agregar') }}
+          {{ saving() ? 'Guardando...' : (editingId() ? 'Actualizar' : '+ Agregar') }}
         </button>
         <button *ngIf="editingId()" class="btn btn-outline" (click)="cancel()">Cancelar</button>
       </div>
@@ -52,7 +49,7 @@ import { ClienteRemitente, Cliente } from '../../models/models';
       <div class="card-head">
         <h3>Asociaciones registradas</h3>
         <div class="search-box-sm">
-          <input type="text" [(ngModel)]="filter" placeholder="🔍 Filtrar..." />
+          <input type="text" [(ngModel)]="filter" placeholder="Filtrar..." />
         </div>
       </div>
       <div *ngIf="loading()" class="loading-state"><div class="spinner"></div></div>
@@ -66,7 +63,7 @@ import { ClienteRemitente, Cliente } from '../../models/models';
         </thead>
         <tbody>
           <tr *ngFor="let a of filtered()">
-            <td><strong>{{ a.cliente }}</strong></td>
+            <td><strong>{{ a.cliente_nombre }}</strong></td>
             <td><span class="email">{{ a.remitente }}</span></td>
             <td class="actions">
               <button class="btn btn-sm btn-outline" (click)="edit(a)">Editar</button>
@@ -89,7 +86,7 @@ import { ClienteRemitente, Cliente } from '../../models/models';
 
     .form-card { padding: 18px 20px; margin-bottom: 18px; }
     .form-card h3 { font-size: 1rem; margin-bottom: 14px; color: var(--text-primary); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
     .field label { display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
     .field input, .field select {
       width: 100%; padding: 8px 10px; border: 1px solid var(--border);
@@ -108,8 +105,6 @@ import { ClienteRemitente, Cliente } from '../../models/models';
     thead th { text-align: left; padding: 10px 14px; background: var(--bg-surface); border-bottom: 2px solid var(--border); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; }
     tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
     .email { font-family: var(--font-mono, monospace); font-size: 0.8rem; color: var(--text-secondary); }
-    .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; background: var(--bg-hover); color: var(--text-muted); }
-    .pill.activo { background: rgba(16, 185, 129, 0.15); color: var(--success); }
     .actions { display: flex; gap: 6px; }
 
     .loading-state { padding: 40px; text-align: center; color: var(--text-muted); }
@@ -128,7 +123,7 @@ export class ClientesRemitentesComponent implements OnInit {
   error = signal<string>('');
   filter = '';
 
-  form: any = this.emptyForm();
+  form: { cliente_id: number | null; remitente: string } = this.emptyForm();
 
   constructor(private admin: AdminService, private catalogos: CatalogosService) {}
 
@@ -138,7 +133,7 @@ export class ClientesRemitentesComponent implements OnInit {
   }
 
   emptyForm() {
-    return { cliente: '', remitente: '', activo: true };
+    return { cliente_id: null as number | null, remitente: '' };
   }
 
   load() {
@@ -153,13 +148,13 @@ export class ClientesRemitentesComponent implements OnInit {
     const f = this.filter.trim().toLowerCase();
     if (!f) return this.asociaciones();
     return this.asociaciones().filter(a =>
-      (a.cliente || '').toLowerCase().includes(f) ||
+      (a.cliente_nombre || '').toLowerCase().includes(f) ||
       (a.remitente || '').toLowerCase().includes(f)
     );
   }
 
   canSubmit(): boolean {
-    return !!this.form.cliente?.trim() && !!this.form.remitente?.trim();
+    return !!this.form.cliente_id && !!this.form.remitente?.trim();
   }
 
   save() {
@@ -178,7 +173,7 @@ export class ClientesRemitentesComponent implements OnInit {
 
   edit(a: ClienteRemitente) {
     this.editingId.set(a.id);
-    this.form = { cliente: a.cliente, remitente: a.remitente, activo: a.activo };
+    this.form = { cliente_id: a.cliente_id, remitente: a.remitente };
   }
 
   cancel() {
@@ -188,7 +183,7 @@ export class ClientesRemitentesComponent implements OnInit {
   }
 
   remove(a: ClienteRemitente) {
-    if (!confirm(`¿Eliminar la asociación '${a.remitente}' → '${a.cliente}'?`)) return;
+    if (!confirm(`¿Eliminar la asociación '${a.remitente}' → '${a.cliente_nombre}'?`)) return;
     this.admin.deleteAsociacion(a.id).subscribe(() => this.load());
   }
 }

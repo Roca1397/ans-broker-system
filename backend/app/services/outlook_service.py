@@ -13,6 +13,7 @@ import base64  # still needed by _decode_pa_content
 import json
 import logging
 import re
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,11 +23,12 @@ logger = logging.getLogger(__name__)
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.models.solicitud import (
     Solicitud, ClienteRemitente, TipoSolicitud,
-    EstadoSolicitud, Prioridad,
+    EstadoSolicitud, Prioridad, Ramo, Aseguradora,
 )
 
 
@@ -62,69 +64,201 @@ async def generar_nro_ticket(db: AsyncSession) -> str:
 
 
 # ════════════════════════════════════════════════════════════════════
-# 2. Detección de tipo de solicitud por asunto
+# 2. Helpers de normalización y matching
 # ════════════════════════════════════════════════════════════════════
 
-PATRONES_TIPO = [
-    ("Inclusión", [r"\binclusi[oó]n\b", r"\binclusion\b", r"\bagregar\b", r"\balta\b"]),
-    ("Exclusión", [r"\bexclusi[oó]n\b", r"\bexclusion\b", r"\bbaja\b", r"\bretirar\b"]),
-    ("Renovación", [r"\brenovaci[oó]n\b", r"\brenovacion\b", r"\brenovar\b"]),
-    ("Emisión",   [r"\bemisi[oó]n\b", r"\bemision\b", r"\bemitir\b", r"\bnueva\s+p[oó]liza\b"]),
-]
+def _normalizar(texto: str) -> str:
+    """
+    Elimina tildes, convierte a minúsculas y normaliza guiones/espacios a un espacio.
+
+    Ejemplos:
+        "SCTR - S"    → "sctr s"
+        "Inclusión"   → "inclusion"
+        "Pacífico"    → "pacifico"
+        "Nro. 4"      → "nro. 4"
+    """
+    texto = unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode("ASCII")
+    texto = texto.lower()
+    texto = re.sub(r"[\s\-]+", " ", texto)
+    return texto.strip()
 
 
-def detectar_tipo_solicitud(asunto: str) -> Optional[str]:
-    """Devuelve el nombre canónico del tipo de solicitud detectado en el asunto."""
+def _buscar_frase(palabras_texto: List[str], frase_norm: str) -> bool:
+    """
+    Devuelve True si frase_norm (como secuencia de palabras) aparece
+    como tokens consecutivos en palabras_texto.
+
+    Ejemplo: _buscar_frase(["sctr", "s", "rimac"], "sctr s") → True
+    """
+    frase_palabras = frase_norm.split()
+    n = len(frase_palabras)
+    for i in range(len(palabras_texto) - n + 1):
+        if palabras_texto[i : i + n] == frase_palabras:
+            return True
+    return False
+
+
+# Palabras irrelevantes al buscar aseguradoras por nombre
+_ASEG_STOPWORDS = {"seguros", "peru", "s.a", "sac", "cia", "compania", "eps", "del", "de", "la"}
+
+# Patrón para número de atenciones (N° 4, Nro 4, No. 4, Número 4, etc.)
+_RE_NRO_ATENCIONES = re.compile(
+    r"(?:n[°oºº]|nro\.?|n[uú]mero|no\.?)\s*[:\-]?\s*(\d+)",
+    re.IGNORECASE,
+)
+
+
+def extraer_nro_atenciones(asunto: str) -> int:
+    """
+    Extrae el número de atenciones del asunto.
+    Reconoce: N° 4, Nº 4, Nro 4, Nro. 4, Número 4, No. 4
+    Retorna 1 si no se encuentra ningún patrón.
+    """
     if not asunto:
-        return None
-    asunto_norm = asunto.lower()
-    for nombre, patrones in PATRONES_TIPO:
-        for patron in patrones:
-            if re.search(patron, asunto_norm):
-                return nombre
-    return None
+        return 1
+    m = _RE_NRO_ATENCIONES.search(asunto)
+    try:
+        return int(m.group(1)) if m else 1
+    except (ValueError, AttributeError):
+        return 1
+
+
+# ════════════════════════════════════════════════════════════════════
+# 3. Extracción dinámica desde el asunto (consulta catálogos de BD)
+# ════════════════════════════════════════════════════════════════════
+
+async def extraer_desde_asunto(db: AsyncSession, asunto: str) -> dict:
+    """
+    Extrae tipo_solicitud_id, ramo_id, aseg_id y nro_atenciones
+    del asunto, consultando dinámicamente los catálogos de la BD.
+
+    Reglas de matching:
+    - Ignora mayúsculas, minúsculas y tildes.
+    - Normaliza guiones y espacios ("SCTR-S" == "SCTR - S" == "SCTR S").
+    - Tipo: busca nombres del catálogo como secuencia de palabras en el asunto
+            (más largo primero para evitar match parcial).
+    - Ramo: ídem.
+    - Aseguradora: primero por código, luego por palabras clave del nombre.
+
+    Returns:
+        {
+            "tipo_solicitud_id": int | None,
+            "ramo_id":           int | None,
+            "aseg_id":           int | None,
+            "nro_atenciones":    int,
+        }
+    """
+    if not asunto:
+        return {"tipo_solicitud_id": None, "ramo_id": None, "aseg_id": None, "nro_atenciones": 1}
+
+    nro_atenciones = extraer_nro_atenciones(asunto)
+
+    # Normalizar el asunto completo y dividir en palabras
+    asunto_norm = _normalizar(asunto)
+    palabras = asunto_norm.split()
+
+    # ── Tipo de solicitud ────────────────────────────────────────────
+    tipos = (await db.execute(
+        select(TipoSolicitud).where(TipoSolicitud.activo == True)
+    )).scalars().all()
+
+    tipo_id = None
+    # Ordenar por longitud desc: "Inclusión retroactiva" antes que "Inclusión"
+    for tipo in sorted(tipos, key=lambda t: len(t.nombre), reverse=True):
+        tipo_norm = _normalizar(tipo.nombre)
+        if tipo_norm and _buscar_frase(palabras, tipo_norm):
+            tipo_id = tipo.id
+            logger.debug("[asunto] tipo=%r id=%d", tipo.nombre, tipo.id)
+            break
+
+    # ── Ramo ────────────────────────────────────────────────────────
+    ramos = (await db.execute(
+        select(Ramo).where(Ramo.activo == True)
+    )).scalars().all()
+
+    ramo_id = None
+    for ramo in sorted(ramos, key=lambda r: len(r.nombre), reverse=True):
+        ramo_norm = _normalizar(ramo.nombre)
+        if ramo_norm and _buscar_frase(palabras, ramo_norm):
+            ramo_id = ramo.id
+            logger.debug("[asunto] ramo=%r id=%d", ramo.nombre, ramo.id)
+            break
+
+    # ── Aseguradora ──────────────────────────────────────────────────
+    aseguradoras = (await db.execute(
+        select(Aseguradora).where(Aseguradora.activo == True)
+    )).scalars().all()
+
+    aseg_id = None
+    for aseg in sorted(aseguradoras, key=lambda a: len(a.nombre), reverse=True):
+        encontrado = False
+
+        # Intento 1: match por código (ej. "RIMAC", "PACIFICO")
+        if aseg.codigo:
+            codigo_norm = _normalizar(aseg.codigo)
+            if codigo_norm and _buscar_frase(palabras, codigo_norm):
+                encontrado = True
+
+        # Intento 2: match por palabras clave del nombre
+        if not encontrado:
+            nombre_norm = _normalizar(aseg.nombre)
+            tokens_clave = [
+                t for t in nombre_norm.split()
+                if len(t) >= 4 and t not in _ASEG_STOPWORDS
+            ]
+            for token in tokens_clave:
+                if token in palabras:
+                    encontrado = True
+                    break
+
+        if encontrado:
+            aseg_id = aseg.id
+            logger.debug("[asunto] aseguradora=%r id=%d", aseg.nombre, aseg.id)
+            break
+
+    return {
+        "tipo_solicitud_id": tipo_id,
+        "ramo_id":           ramo_id,
+        "aseg_id":           aseg_id,
+        "nro_atenciones":    nro_atenciones,
+    }
 
 
 async def resolver_tipo_solicitud_id(db: AsyncSession, asunto: str) -> Optional[int]:
-    nombre = detectar_tipo_solicitud(asunto)
-    if not nombre:
-        return None
-    result = await db.execute(
-        select(TipoSolicitud).where(
-            func.lower(TipoSolicitud.nombre) == nombre.lower()
-        )
-    )
-    tipo = result.scalar_one_or_none()
-    return tipo.id if tipo else None
+    """Compatibilidad con código existente — delega a extraer_desde_asunto."""
+    extraido = await extraer_desde_asunto(db, asunto)
+    return extraido["tipo_solicitud_id"]
 
 
 # ════════════════════════════════════════════════════════════════════
-# 3. Resolución de cliente a partir del remitente
+# 4. Resolución de cliente a partir del remitente
 # ════════════════════════════════════════════════════════════════════
 
 async def resolver_cliente_por_remitente(
     db: AsyncSession, remitente: str
-) -> Tuple[str, Optional[int], Optional[int]]:
+) -> str:
     """
-    Devuelve (cliente_str, aseguradora_id, ramo_id).
-    Si no existe asociación, devuelve ("Pendiente de asignar", None, None).
+    Devuelve el nombre del cliente asociado al remitente.
+    Si no existe asociación, devuelve "Pendiente de asignar".
+    Aseguradora y ramo ya no se resuelven aquí; se extraen del asunto.
     """
     if not remitente:
-        return "Pendiente de asignar", None, None
+        return "Pendiente de asignar"
 
-    stmt = select(ClienteRemitente).where(
-        func.lower(ClienteRemitente.remitente) == remitente.lower(),
-        ClienteRemitente.activo == True,
+    stmt = (
+        select(ClienteRemitente)
+        .options(selectinload(ClienteRemitente.cliente_rel))
+        .where(func.lower(ClienteRemitente.remitente) == remitente.lower())
     )
     result = await db.execute(stmt)
     asoc = result.scalar_one_or_none()
-    if asoc:
-        return asoc.cliente, asoc.aseguradora_id, asoc.ramo_id
-    return "Pendiente de asignar", None, None
+    if asoc and asoc.cliente_rel:
+        return asoc.cliente_rel.nombre
+    return "Pendiente de asignar"
 
 
 # ════════════════════════════════════════════════════════════════════
-# 4. Resolución de prioridad / estado
+# 5. Resolución de prioridad / estado
 # ════════════════════════════════════════════════════════════════════
 
 async def resolver_prioridad_id(db: AsyncSession, nombre: Optional[str]) -> Optional[int]:
@@ -146,7 +280,7 @@ async def resolver_estado_pendiente_id(db: AsyncSession) -> Optional[int]:
 
 
 # ════════════════════════════════════════════════════════════════════
-# 5. Persistencia de archivos
+# 6. Persistencia de archivos
 # ════════════════════════════════════════════════════════════════════
 
 def _safe_filename(name: str) -> str:

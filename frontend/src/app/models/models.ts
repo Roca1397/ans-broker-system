@@ -51,14 +51,10 @@ export interface Cliente extends CatalogoItem {
 
 export interface ClienteRemitente {
   id: number;
-  cliente: string;
+  cliente_id: number;
+  cliente_nombre: string;
   remitente: string;
-  cliente_id?: number | null;
-  aseguradora_id?: number | null;
-  ramo_id?: number | null;
-  activo: boolean;
-  aseguradora_nombre?: string | null;
-  ramo_nombre?: string | null;
+  created_at?: string | null;
 }
 
 // ── Solicitudes (legado) ───────────────────────────────────

@@ -179,33 +179,21 @@ class ClienteOut(BaseModel):
 
 
 class ClienteRemitenteCreate(BaseModel):
-    cliente: str = Field(..., min_length=1)
+    cliente_id: int
     remitente: EmailStr
-    cliente_id: Optional[int] = None
-    aseguradora_id: Optional[int] = None
-    ramo_id: Optional[int] = None
-    activo: bool = True
 
 
 class ClienteRemitenteUpdate(BaseModel):
-    cliente: Optional[str] = None
-    remitente: Optional[EmailStr] = None
     cliente_id: Optional[int] = None
-    aseguradora_id: Optional[int] = None
-    ramo_id: Optional[int] = None
-    activo: Optional[bool] = None
+    remitente: Optional[EmailStr] = None
 
 
 class ClienteRemitenteOut(BaseModel):
     id: int
-    cliente: str
+    cliente_id: int
+    cliente_nombre: str
     remitente: str
-    cliente_id: Optional[int] = None
-    aseguradora_id: Optional[int] = None
-    ramo_id: Optional[int] = None
-    activo: bool
-    aseguradora_nombre: Optional[str] = None
-    ramo_nombre: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
