@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -33,6 +33,21 @@ const ALL_COLUMNS = [
   { key: 'fecha_envio',    label: 'Fecha envío aseguradora' },
   { key: 'adjuntos',       label: 'Adjuntos' },
 ];
+
+// ── Column resize ──────────────────────────────────────────────────────────────
+const LS_WIDTHS = 'solicitudes_column_widths';
+const COL_DEFAULTS: Record<string, number> = {
+  ticket: 110, cliente: 160, tipo: 120, estado: 120, prioridad: 120,
+  nro_atenciones: 140, ejecutivo: 130, aseguradora: 160, ramo: 130,
+  remitente: 220, recepcion: 160, asunto: 260, prediccion: 130,
+  probabilidad: 130, fecha_limite: 160, fecha_envio: 170, adjuntos: 40,
+};
+const COL_MINS: Record<string, number> = {
+  ticket: 80, cliente: 120, tipo: 90, estado: 90, prioridad: 90,
+  nro_atenciones: 110, ejecutivo: 100, aseguradora: 120, ramo: 90,
+  remitente: 150, recepcion: 130, asunto: 160, prediccion: 100,
+  probabilidad: 90, fecha_limite: 130, fecha_envio: 140, adjuntos: 36,
+};
 
 @Component({
   selector: 'app-lista-solicitudes',
@@ -153,8 +168,9 @@ const ALL_COLUMNS = [
               {{ c.label }}
             </label>
           </div>
-          <div class="fp-footer">
-            <button class="fp-clear" (click)="resetColumns()">↺ Restaurar vista</button>
+          <div class="fp-footer" style="display:flex;gap:6px;">
+            <button class="fp-clear" (click)="resetColumns()" style="flex:1">↺ Restaurar columnas</button>
+            <button class="fp-clear" (click)="resetWidths()" style="flex:1">↔ Restaurar anchos</button>
           </div>
         </div>
       </div>
@@ -175,27 +191,27 @@ const ALL_COLUMNS = [
       </div>
 
       <div class="table-wrapper" *ngIf="!loading() && !loadError()">
-        <table>
+        <table [style.width.px]="totalTableWidth()">
           <thead>
             <tr>
-              <th *ngIf="col('ticket')" class="col-ticket">Ticket</th>
-              <th *ngIf="col('cliente')">Cliente</th>
-              <th *ngIf="col('tipo')">Tipo</th>
-              <th *ngIf="col('estado')">Estado</th>
-              <th *ngIf="col('prioridad')">Prioridad</th>
-              <th *ngIf="col('nro_atenciones')" class="cell-center">Nro. Atenciones</th>
-              <th *ngIf="col('ejecutivo')">Ejecutivo</th>
-              <th *ngIf="col('aseguradora')">Aseguradora</th>
-              <th *ngIf="col('ramo')">Ramo</th>
-              <th *ngIf="col('remitente')">Remitente</th>
-              <th *ngIf="col('recepcion')">Recepción</th>
-              <th *ngIf="col('asunto')" class="col-asunto">Asunto</th>
-              <th *ngIf="col('prediccion')">Predicción ANS</th>
-              <th *ngIf="col('probabilidad')">Probabilidad</th>
-              <th *ngIf="col('fecha_limite')">Fecha de atención</th>
-              <th *ngIf="col('fecha_envio')">Envío aseguradora</th>
-              <th *ngIf="col('adjuntos')" class="col-adj"></th>
-              <th class="col-open"></th>
+              <th *ngIf="col('ticket')" [style.width.px]="colW('ticket')" class="th-resizable">Ticket<div class="resize-handle" (mousedown)="startResize($event,'ticket')"></div></th>
+              <th *ngIf="col('cliente')" [style.width.px]="colW('cliente')" class="th-resizable">Cliente<div class="resize-handle" (mousedown)="startResize($event,'cliente')"></div></th>
+              <th *ngIf="col('tipo')" [style.width.px]="colW('tipo')" class="th-resizable">Tipo<div class="resize-handle" (mousedown)="startResize($event,'tipo')"></div></th>
+              <th *ngIf="col('estado')" [style.width.px]="colW('estado')" class="th-resizable">Estado<div class="resize-handle" (mousedown)="startResize($event,'estado')"></div></th>
+              <th *ngIf="col('prioridad')" [style.width.px]="colW('prioridad')" class="th-resizable">Prioridad<div class="resize-handle" (mousedown)="startResize($event,'prioridad')"></div></th>
+              <th *ngIf="col('nro_atenciones')" [style.width.px]="colW('nro_atenciones')" class="th-resizable cell-center">Nro. Atenciones<div class="resize-handle" (mousedown)="startResize($event,'nro_atenciones')"></div></th>
+              <th *ngIf="col('ejecutivo')" [style.width.px]="colW('ejecutivo')" class="th-resizable">Ejecutivo<div class="resize-handle" (mousedown)="startResize($event,'ejecutivo')"></div></th>
+              <th *ngIf="col('aseguradora')" [style.width.px]="colW('aseguradora')" class="th-resizable">Aseguradora<div class="resize-handle" (mousedown)="startResize($event,'aseguradora')"></div></th>
+              <th *ngIf="col('ramo')" [style.width.px]="colW('ramo')" class="th-resizable">Ramo<div class="resize-handle" (mousedown)="startResize($event,'ramo')"></div></th>
+              <th *ngIf="col('remitente')" [style.width.px]="colW('remitente')" class="th-resizable">Remitente<div class="resize-handle" (mousedown)="startResize($event,'remitente')"></div></th>
+              <th *ngIf="col('recepcion')" [style.width.px]="colW('recepcion')" class="th-resizable">Recepción<div class="resize-handle" (mousedown)="startResize($event,'recepcion')"></div></th>
+              <th *ngIf="col('asunto')" [style.width.px]="colW('asunto')" class="th-resizable">Asunto<div class="resize-handle" (mousedown)="startResize($event,'asunto')"></div></th>
+              <th *ngIf="col('prediccion')" [style.width.px]="colW('prediccion')" class="th-resizable">Predicción ANS<div class="resize-handle" (mousedown)="startResize($event,'prediccion')"></div></th>
+              <th *ngIf="col('probabilidad')" [style.width.px]="colW('probabilidad')" class="th-resizable">Probabilidad<div class="resize-handle" (mousedown)="startResize($event,'probabilidad')"></div></th>
+              <th *ngIf="col('fecha_limite')" [style.width.px]="colW('fecha_limite')" class="th-resizable">Fecha de atención<div class="resize-handle" (mousedown)="startResize($event,'fecha_limite')"></div></th>
+              <th *ngIf="col('fecha_envio')" [style.width.px]="colW('fecha_envio')" class="th-resizable">Envío aseguradora<div class="resize-handle" (mousedown)="startResize($event,'fecha_envio')"></div></th>
+              <th *ngIf="col('adjuntos')" [style.width.px]="colW('adjuntos')" class="th-resizable col-adj"><div class="resize-handle" (mousedown)="startResize($event,'adjuntos')"></div></th>
+              <th class="col-open" style="width:36px"></th>
             </tr>
           </thead>
           <tbody>
@@ -552,25 +568,36 @@ const ALL_COLUMNS = [
 
     /* ── Table ───────────────────────────────────────────────── */
     .table-card { padding: 0; overflow: hidden; }
-    .table-wrapper { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+    .table-wrapper { overflow-x: auto; overflow-y: visible; }
+    table { border-collapse: collapse; table-layout: fixed; font-size: 0.78rem; min-width: 100%; }
     thead th {
-      text-align: left; padding: 10px 12px;
+      position: relative;
+      text-align: left; padding: 10px 18px 10px 12px;
       background: var(--bg-surface); border-bottom: 2px solid var(--border);
       color: var(--text-secondary); font-size: 0.72rem; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      user-select: none;
     }
-    tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text-primary); }
+    tbody td {
+      padding: 9px 12px; border-bottom: 1px solid var(--border);
+      vertical-align: middle; color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     tbody tr.row-clickable { cursor: pointer; transition: background 0.12s; }
     tbody tr.row-clickable:hover { background: var(--bg-hover); }
     tbody tr.row-fuera { background: rgba(255,76,76,0.03); }
-    .col-ticket { width: 110px; }
-    .col-adj    { width: 36px; }
-    .col-open   { width: 28px; }
-    .col-asunto { min-width: 160px; }
-    .cell-nowrap  { white-space: nowrap; }
-    .cell-date    { white-space: nowrap; }
+    /* Resize handle */
+    .th-resizable { position: relative; }
+    .resize-handle {
+      position: absolute; right: 0; top: 0; bottom: 0; width: 6px;
+      cursor: col-resize; user-select: none; z-index: 5;
+    }
+    .resize-handle:hover { background: rgba(0,90,158,.28); border-radius: 2px; }
+    /* Fixed cols */
+    .col-adj  { width: 40px; }
+    .col-open { width: 36px; }
     .cell-center  { text-align: center; }
-    .cell-truncate { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+    .cell-date    { white-space: nowrap; }
     .muted-dash   { color: var(--text-muted); }
     .ticket { font-family: var(--font-mono, monospace); color: var(--primary); font-weight: 600; }
     .open-arrow { color: var(--text-muted); font-size: 1.2rem; }
@@ -772,7 +799,7 @@ const ALL_COLUMNS = [
     }
   `],
 })
-export class ListaSolicitudesComponent implements OnInit {
+export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   solicitudes  = signal<SolicitudListItem[]>([]);
   selectedDetail = signal<SolicitudDetail | null>(null);
   loading    = signal(true);
@@ -820,6 +847,27 @@ export class ListaSolicitudesComponent implements OnInit {
   editForm: any = {};
   newComment = '';
 
+  // ── Column resize ────────────────────────────────────────────────────────────
+  colWidths = signal<Record<string, number>>({ ...COL_DEFAULTS });
+  totalTableWidth = computed(() => {
+    const w = this.colWidths();
+    const v = this._visibleCols();
+    let total = 36; // col-open fixed
+    for (const c of ALL_COLUMNS) {
+      if (v.has(c.key)) total += w[c.key] ?? COL_DEFAULTS[c.key] ?? 100;
+    }
+    return total;
+  });
+
+  private _resizeTh: HTMLElement | null = null;
+  private _resizeTable: HTMLElement | null = null;
+  private _resizeKey = '';
+  private _resizeStartX = 0;
+  private _resizeStartW = 0;
+  private _resizeTableStartW = 0;
+  private readonly _onMouseMoveRef = (e: MouseEvent) => this._doResize(e);
+  private readonly _onMouseUpRef   = () => this._endResize();
+
   countBajo  = computed(() => this.solicitudes().filter(s => (s.probabilidad ?? 0) < 0.4).length);
   countMedio = computed(() => this.solicitudes().filter(s => { const p = s.probabilidad ?? 0; return p >= 0.4 && p <= 0.7; }).length);
   countAlto  = computed(() => this.solicitudes().filter(s => (s.probabilidad ?? 0) > 0.7).length);
@@ -830,7 +878,10 @@ export class ListaSolicitudesComponent implements OnInit {
     private service:   SolicitudesService,
     private catalogos: CatalogosService,
     public  auth:      AuthService,
-  ) {}
+  ) {
+    const saved = this._loadWidths();
+    if (Object.keys(saved).length) this.colWidths.set({ ...COL_DEFAULTS, ...saved });
+  }
 
   ngOnInit() {
     this.catalogos.getAseguradoras().subscribe(d => this.aseguradoras = d);
@@ -1162,5 +1213,70 @@ export class ListaSolicitudesComponent implements OnInit {
 
   private _saveCols(): void {
     try { localStorage.setItem(LS_COLS, JSON.stringify([...this._visibleCols()])); } catch {}
+  }
+
+  // ── Column resize methods ─────────────────────────────────────────────────────
+  colW(key: string): number {
+    return this.colWidths()[key] ?? COL_DEFAULTS[key] ?? 100;
+  }
+
+  startResize(event: MouseEvent, key: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const th = (event.currentTarget as HTMLElement).closest('th') as HTMLElement;
+    if (!th) return;
+    this._resizeTh       = th;
+    this._resizeTable    = th.closest('table') as HTMLElement;
+    this._resizeKey      = key;
+    this._resizeStartX   = event.clientX;
+    this._resizeStartW   = th.offsetWidth;
+    this._resizeTableStartW = this._resizeTable?.offsetWidth ?? 0;
+    document.addEventListener('mousemove', this._onMouseMoveRef);
+    document.addEventListener('mouseup',   this._onMouseUpRef);
+  }
+
+  private _doResize(e: MouseEvent): void {
+    if (!this._resizeTh) return;
+    const delta = e.clientX - this._resizeStartX;
+    const minW  = COL_MINS[this._resizeKey] ?? 60;
+    const newW  = Math.max(minW, this._resizeStartW + delta);
+    this._resizeTh.style.width = newW + 'px';
+    if (this._resizeTable) {
+      const actualDelta = newW - this._resizeStartW;
+      this._resizeTable.style.width = Math.max(this._resizeTableStartW + actualDelta, 100) + 'px';
+    }
+  }
+
+  private _endResize(): void {
+    if (this._resizeTh) {
+      const finalW = this._resizeTh.offsetWidth;
+      this.colWidths.update(w => ({ ...w, [this._resizeKey]: finalW }));
+      this._saveWidths();
+      this._resizeTh    = null;
+      this._resizeTable = null;
+    }
+    document.removeEventListener('mousemove', this._onMouseMoveRef);
+    document.removeEventListener('mouseup',   this._onMouseUpRef);
+  }
+
+  resetWidths(): void {
+    this.colWidths.set({ ...COL_DEFAULTS });
+    try { localStorage.removeItem(LS_WIDTHS); } catch {}
+  }
+
+  private _loadWidths(): Record<string, number> {
+    try {
+      const s = localStorage.getItem(LS_WIDTHS);
+      return s ? JSON.parse(s) : {};
+    } catch { return {}; }
+  }
+
+  private _saveWidths(): void {
+    try { localStorage.setItem(LS_WIDTHS, JSON.stringify(this.colWidths())); } catch {}
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('mousemove', this._onMouseMoveRef);
+    document.removeEventListener('mouseup',   this._onMouseUpRef);
   }
 }
