@@ -150,13 +150,20 @@ export interface SolicitudConPrediccion {
   id: string;
   nro_ticket?: string;
   cliente?: string;
+  tipo_solicitud?: string;
+  aseguradora?: string;
+  ramo?: string;
+  ejecutivo?: string;
   estado: string;
   fuente: string;
-  aseguradora?: string;
-  cumple_ans?: boolean;
+  prediccion?: string;
   probabilidad_riesgo?: number;
   nivel_riesgo?: string;
+  cumple_ans?: boolean;
+  fecha_recepcion?: string;
   prediccion_fecha?: string;
+  alertada?: boolean;
+  modelo_version?: string;
 }
 
 // ── Predicción RF (nuevo endpoint /predict-solicitud) ──────
@@ -187,9 +194,11 @@ export interface DashboardStats {
 
 export interface Alerta {
   id: string;
-  tipo: string;
+  tipo: string;          // "alto_riesgo" | "critico"
   mensaje: string;
   leida: boolean;
+  resuelta: boolean;
+  probabilidad: number | null;
   created_at: string;
   nro_ticket?: string;
   solicitud_id: string;

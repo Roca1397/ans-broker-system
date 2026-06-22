@@ -1,8 +1,10 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { AlertasService } from '../../services/api.service';
+import { Alerta } from '../../models/models';
 
 @Component({
   selector: 'app-layout',
@@ -215,7 +217,12 @@ import { AlertasService } from '../../services/api.service';
               </div>
               <button class="btn btn-sm btn-outline" (click)="markAllRead()">Marcar todas leídas</button>
             </div>
-            <div *ngFor="let a of alertas" class="alert-item" [class.unread]="!a.leida" [class.critico]="a.tipo === 'critico'">
+            <div *ngFor="let a of alertas"
+                 class="alert-item"
+                 [class.unread]="!a.leida"
+                 [class.critico]="a.tipo === 'critico'"
+                 (click)="openAlerta(a)"
+                 title="Ver solicitud">
               <div class="alert-item-icon" [class.critico]="a.tipo === 'critico'">
                 <svg *ngIf="a.tipo === 'critico'" viewBox="0 0 20 20" fill="none" width="14" height="14">
                   <path d="M10 3L2 17h16L10 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -226,10 +233,17 @@ import { AlertasService } from '../../services/api.service';
                   <path d="M10 7v4M10 13h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 </svg>
               </div>
-              <div>
-                <p>{{ a.mensaje }}</p>
-                <small>{{ a.nro_ticket }}</small>
+              <div class="alert-item-body">
+                <div class="alert-item-header">
+                  <span class="alert-ticket">{{ a.nro_ticket || '—' }}</span>
+                  <span class="alert-prob" [class.critico]="a.tipo === 'critico'">
+                    {{ a.probabilidad != null ? (a.probabilidad * 100 | number:'1.0-0') + '%' : '' }}
+                  </span>
+                </div>
+                <p class="alert-msg">{{ a.mensaje }}</p>
+                <small class="alert-time">{{ a.created_at | date:'dd MMM yyyy, HH:mm' }}</small>
               </div>
+              <span *ngIf="!a.leida" class="unread-dot"></span>
             </div>
             <div *ngIf="alertas.length === 0" class="empty-state" style="padding: 30px">
               <p>No hay alertas pendientes</p>
@@ -450,6 +464,15 @@ import { AlertasService } from '../../services/api.service';
     }
     .alert-item-icon.critico { background: rgba(249,115,22,.12); color: #F97316; }
     .alert-item.critico { border-left: 3px solid #F97316; }
+    .alert-item { cursor: pointer; position: relative; }
+    .alert-item-body { flex: 1; min-width: 0; }
+    .alert-item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+    .alert-ticket { font-size: 0.78rem; font-weight: 700; color: var(--primary); font-family: var(--font-mono, monospace); }
+    .alert-prob { font-size: 0.78rem; font-weight: 700; color: #F97316; }
+    .alert-prob.critico { color: #ef4444; }
+    .alert-msg { color: var(--text-secondary); margin-bottom: 3px; font-size: 0.8rem; line-height: 1.4; }
+    .alert-time { color: var(--text-muted); font-size: 0.7rem; }
+    .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: #F97316; flex-shrink: 0; margin-top: 4px; }
 
     /* Main content */
     .main-content { flex: 1; padding: 28px; overflow-y: auto; background: var(--bg-base); }
@@ -468,9 +491,13 @@ export class LayoutComponent {
   collapsed = signal(false);
   showAlerts = false;
   alertCount = 0;
-  alertas: any[] = [];
+  alertas: Alerta[] = [];
 
-  constructor(public auth: AuthService, private alertasService: AlertasService) {
+  constructor(
+    public auth: AuthService,
+    private alertasService: AlertasService,
+    private router: Router,
+  ) {
     this.loadAlerts();
   }
 
@@ -496,5 +523,17 @@ export class LayoutComponent {
 
   markAllRead() {
     this.alertasService.marcarTodasLeidas().subscribe(() => this.loadAlerts());
+  }
+
+  openAlerta(a: Alerta) {
+    this.showAlerts = false;
+    if (!a.leida) {
+      this.alertasService.marcarLeida(a.id).subscribe(() => this.loadAlerts());
+    }
+    if (a.nro_ticket) {
+      this.router.navigate(['/solicitudes'], { queryParams: { search: a.nro_ticket } });
+    } else {
+      this.router.navigate(['/solicitudes']);
+    }
   }
 }

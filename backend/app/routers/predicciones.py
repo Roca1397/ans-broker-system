@@ -11,7 +11,10 @@ Endpoints:
         el resultado en predicciones_ans + solicitudes.probabilidad/prediccion.
 
   GET  /api/predicciones/resultados
-      → Tabla de solicitudes con sus predicciones almacenadas.
+      → Tabla de solicitudes con predicción real del RF v2.
+        Solo devuelve filas que tienen registro en predicciones_ans
+        con modelo_version = "Random Forest v2".
+        Soporta filtros: prediccion_ans, nivel_riesgo, min_probabilidad.
 """
 import logging
 from fastapi import APIRouter, Depends, HTTPException
@@ -30,10 +33,13 @@ from app.schemas.schemas import (
 )
 from app.ml.predictor import predictor
 from app.services.prediction_service import predecir_ans, is_loaded
+from app.services.alertas_service import gestionar_alerta_riesgo
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+MODEL_VERSION_RF2 = "Random Forest v2"
 
 
 # ── Helper: guardar/actualizar PrediccionANS ─────────────────────────────────
@@ -46,6 +52,7 @@ async def _persistir_prediccion(
     """
     Persiste en predicciones_ans SOLO cuando el RF v2 produjo un resultado válido.
     Si prediccion_ans no es 'Dentro de ANS' ni 'Fuera de ANS', no guarda nada.
+    Tras persistir, gestiona la alerta de riesgo correspondiente.
     """
     pred = result["prediccion_ans"]
     if pred not in ("Dentro de ANS", "Fuera de ANS"):
@@ -86,6 +93,7 @@ async def _persistir_prediccion(
             tiempo_prediccion_ms=result.get("tiempo_prediccion_ms", 0.0),
         ))
 
+    await gestionar_alerta_riesgo(db, solicitud, prob)
     await db.commit()
 
 
@@ -143,7 +151,6 @@ async def predict_por_solicitud(
                    "Verifique que ml_models/modelo_random_forest_v2.pkl exista.",
         )
 
-    # Cargar solicitud con todas las relaciones necesarias
     sol = (await db.execute(
         select(Solicitud).options(
             selectinload(Solicitud.tipo_solicitud),
@@ -186,20 +193,33 @@ async def predict_por_solicitud(
 @router.get("/resultados", response_model=List[SolicitudConPrediccionOut])
 async def resultados_predicciones(
     skip: int = 0,
-    limit: int = 50,
+    limit: int = 100,
     nivel_riesgo: Optional[str] = None,
+    prediccion_ans: Optional[str] = None,
+    min_probabilidad: Optional[float] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Tabla de solicitudes con sus predicciones almacenadas."""
+    """
+    Tabla de solicitudes con predicción real del RF v2.
+    Solo devuelve solicitudes que tienen registro en predicciones_ans
+    con modelo_version = 'Random Forest v2' (INNER JOIN).
+    Ordenadas por probabilidad_riesgo descendente.
+    """
     query = (
         select(Solicitud)
         .options(
             selectinload(Solicitud.prediccion_rel),
             selectinload(Solicitud.aseguradora),
+            selectinload(Solicitud.tipo_solicitud),
+            selectinload(Solicitud.ramo),
+            selectinload(Solicitud.estado_rel),
+            selectinload(Solicitud.ejecutivo_rel),
+            selectinload(Solicitud.alertas),
         )
-        .join(PrediccionANS, Solicitud.id == PrediccionANS.solicitud_id, isouter=True)
-        .order_by(desc(Solicitud.created_at))
+        .join(PrediccionANS, Solicitud.id == PrediccionANS.solicitud_id)
+        .where(PrediccionANS.modelo_version == MODEL_VERSION_RF2)
+        .order_by(desc(PrediccionANS.probabilidad_riesgo))
         .offset(skip)
         .limit(limit)
     )
@@ -210,20 +230,41 @@ async def resultados_predicciones(
     if nivel_riesgo:
         query = query.where(PrediccionANS.nivel_riesgo == nivel_riesgo)
 
+    if prediccion_ans == "Dentro de ANS":
+        query = query.where(PrediccionANS.cumple_ans == True)
+    elif prediccion_ans == "Fuera de ANS":
+        query = query.where(PrediccionANS.cumple_ans == False)
+
+    if min_probabilidad is not None:
+        query = query.where(PrediccionANS.probabilidad_riesgo >= min_probabilidad)
+
     items = (await db.execute(query)).scalars().all()
 
-    return [
-        SolicitudConPrediccionOut(
-            id=s.id,
-            nro_ticket=s.nro_ticket,
-            cliente=s.cliente,
-            estado=s.estado,
-            fuente=s.fuente,
-            aseguradora=s.aseguradora.nombre if s.aseguradora else None,
-            cumple_ans=s.prediccion_rel.cumple_ans if s.prediccion_rel else None,
-            probabilidad_riesgo=s.prediccion_rel.probabilidad_riesgo if s.prediccion_rel else None,
-            nivel_riesgo=s.prediccion_rel.nivel_riesgo if s.prediccion_rel else None,
-            prediccion_fecha=s.prediccion_rel.created_at if s.prediccion_rel else None,
-        )
-        for s in items
-    ]
+    return [_to_prediccion_out(s) for s in items]
+
+
+def _to_prediccion_out(s: Solicitud) -> SolicitudConPrediccionOut:
+    pred = s.prediccion_rel
+    tiene_alerta_activa = any(
+        not a.resuelta and a.tipo in ("alto_riesgo", "critico")
+        for a in (s.alertas or [])
+    )
+    return SolicitudConPrediccionOut(
+        id=s.id,
+        nro_ticket=s.nro_ticket,
+        cliente=s.cliente,
+        tipo_solicitud=s.tipo_solicitud.nombre if s.tipo_solicitud else None,
+        aseguradora=s.aseguradora.nombre if s.aseguradora else None,
+        ramo=s.ramo.nombre if s.ramo else None,
+        ejecutivo=s.ejecutivo_rel.full_name if s.ejecutivo_rel else None,
+        estado=s.estado_rel.nombre if s.estado_rel else (s.estado or ""),
+        fuente=s.fuente,
+        prediccion=s.prediccion,
+        probabilidad_riesgo=pred.probabilidad_riesgo if pred else None,
+        nivel_riesgo=pred.nivel_riesgo if pred else None,
+        cumple_ans=pred.cumple_ans if pred else None,
+        fecha_recepcion=s.fecha_recepcion,
+        prediccion_fecha=pred.created_at if pred else None,
+        alertada=tiene_alerta_activa,
+        modelo_version=pred.modelo_version if pred else None,
+    )

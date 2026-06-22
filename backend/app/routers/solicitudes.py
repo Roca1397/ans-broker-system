@@ -50,6 +50,7 @@ from app.schemas.schemas import (
     ComentarioAdd,
 )
 from app.services.prediction_service import predecir_ans, is_loaded as rf_loaded
+from app.services.alertas_service import gestionar_alerta_riesgo
 
 from app.models.solicitud import PrediccionANS
 from app.services.outlook_service import (
@@ -202,6 +203,8 @@ async def _guardar_prediccion_ans(
             modelo_version=rf_result.get("modelo_usado", ""),
             tiempo_prediccion_ms=rf_result.get("tiempo_prediccion_ms", 0.0),
         ))
+
+    await gestionar_alerta_riesgo(db, solicitud, prob)
 
 
 # ════════════════════════════════════════════════════════════════════

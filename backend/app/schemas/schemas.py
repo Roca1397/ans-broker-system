@@ -358,13 +358,20 @@ class SolicitudConPrediccionOut(BaseModel):
     id: UUID
     nro_ticket: Optional[str] = None
     cliente: Optional[str] = None
+    tipo_solicitud: Optional[str] = None
+    aseguradora: Optional[str] = None
+    ramo: Optional[str] = None
+    ejecutivo: Optional[str] = None
     estado: str
     fuente: str
-    aseguradora: Optional[str] = None
-    cumple_ans: Optional[bool] = None
+    prediccion: Optional[str] = None
     probabilidad_riesgo: Optional[float] = None
     nivel_riesgo: Optional[str] = None
+    cumple_ans: Optional[bool] = None
+    fecha_recepcion: Optional[datetime] = None
     prediccion_fecha: Optional[datetime] = None
+    alertada: Optional[bool] = None
+    modelo_version: Optional[str] = None
 
     class Config:
         from_attributes = True

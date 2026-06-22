@@ -235,8 +235,11 @@ class Alerta(Base):
     tipo = Column(String(50), nullable=False)
     mensaje = Column(Text, nullable=False)
     leida = Column(Boolean, default=False)
-    usuario_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    resuelta = Column(Boolean, default=False)      # True cuando prob baja de 0.80
+    probabilidad = Column(Float, nullable=True)    # prob en el momento de creación/actualización
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     solicitud = relationship("Solicitud", back_populates="alertas")
     usuario = relationship("User", back_populates="alertas")
