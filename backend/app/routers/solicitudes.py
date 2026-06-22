@@ -29,7 +29,7 @@ import mimetypes
 import shutil
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import select, func, desc, or_, update
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -40,7 +40,7 @@ from app.core.api_key import verify_api_key
 from app.core.config import settings
 from app.models.solicitud import (
     Solicitud, Aseguradora,
-    TipoSolicitud, EstadoSolicitud, Prioridad, Ramo,
+    TipoSolicitud, EstadoSolicitud, Prioridad, Ramo, Alerta,
 )
 from app.models.user import User
 from app.schemas.schemas import (
@@ -57,6 +57,7 @@ from app.services.outlook_service import (
     generar_nro_ticket,
     extraer_desde_asunto,
     resolver_cliente_por_remitente, resolver_prioridad_id,
+    resolver_prioridad_id_desde_remitente,
     resolver_estado_pendiente_id,
     guardar_eml, guardar_adjunto,
 )
@@ -304,11 +305,13 @@ async def crear_desde_outlook(
 
     estado_id = await resolver_estado_pendiente_id(db)
 
-    # 4. Prioridad: Normal por defecto cuando el cliente no se identifica
+    # 4. Prioridad: usar la configurada en el cliente; si no tiene, "Normal"
     if cliente == "Pendiente de asignar":
         prioridad_id = await resolver_prioridad_id(db, "Normal")
     else:
-        prioridad_id = await resolver_prioridad_id(db, payload.prioridad or "Normal")
+        prioridad_id = await resolver_prioridad_id_desde_remitente(db, payload.remitente)
+        if prioridad_id is None:
+            prioridad_id = await resolver_prioridad_id(db, "Normal")
 
     if rf_loaded():
         pred = await _predecir_con_rf(
@@ -550,9 +553,25 @@ async def editar_solicitud(
         estado = (await db.execute(
             select(EstadoSolicitud).where(EstadoSolicitud.id == payload["estado_id"])
         )).scalar_one_or_none()
-        if estado and estado.nombre.lower() == "finalizado" and not sol.fecha_finalizado:
-            sol.fecha_finalizado = datetime.now(timezone.utc)
-        sol.estado = estado.nombre if estado else sol.estado
+        if estado:
+            nombre_estado = estado.nombre
+            # Marcar fecha_finalizado cuando corresponde
+            if nombre_estado.lower() == "finalizado" and not sol.fecha_finalizado:
+                sol.fecha_finalizado = datetime.now(timezone.utc)
+            sol.estado = nombre_estado
+            # Resolver alertas activas si la solicitud pasa a estado terminal
+            _ESTADOS_TERMINALES = ("finaliz", "cerrad", "atendid", "complet")
+            if any(kw in nombre_estado.lower() for kw in _ESTADOS_TERMINALES):
+                await db.execute(
+                    update(Alerta)
+                    .where(
+                        Alerta.solicitud_id == sol.id,
+                        Alerta.resuelta == False,
+                    )
+                    .values(resuelta=True)
+                )
+        else:
+            pass  # estado_id inválido, no modificar sol.estado
 
     _campos_prediccion = {"tipo_solicitud_id", "prioridad_id", "aseguradora_id", "ramo_id", "nro_atenciones"}
     recalcular = rf_loaded() and bool(_campos_prediccion & set(payload.keys()))

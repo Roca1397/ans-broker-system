@@ -257,6 +257,27 @@ async def resolver_cliente_por_remitente(
     return "Pendiente de asignar"
 
 
+async def resolver_prioridad_id_desde_remitente(
+    db: AsyncSession, remitente: str
+) -> Optional[int]:
+    """
+    Devuelve el prioridad_id configurado en el cliente asociado al remitente.
+    Retorna None si no existe asociación o si el cliente no tiene prioridad configurada.
+    """
+    if not remitente:
+        return None
+    stmt = (
+        select(ClienteRemitente)
+        .options(selectinload(ClienteRemitente.cliente_rel))
+        .where(func.lower(ClienteRemitente.remitente) == remitente.lower())
+    )
+    result = await db.execute(stmt)
+    asoc = result.scalar_one_or_none()
+    if asoc and asoc.cliente_rel:
+        return asoc.cliente_rel.prioridad_id
+    return None
+
+
 # ════════════════════════════════════════════════════════════════════
 # 5. Resolución de prioridad / estado
 # ════════════════════════════════════════════════════════════════════

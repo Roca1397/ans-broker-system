@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text, and_, or_, desc
+from sqlalchemy import select, func, text, and_, or_, not_, desc, update
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -12,13 +12,33 @@ from app.models.user import User
 
 router = APIRouter()
 
+# ── Estados que indican solicitud "cerrada" / no operativa ────────────────────
+# Se usan como filtro de exclusión en todas las métricas de riesgo operativo.
+# Coincidencia por subcadena (ILIKE) contra solicitudes.estado (campo sincronizado
+# con estados_solicitud.nombre cuando se actualiza via estado_id).
+_KEYWORDS_FINALIZADAS = ("finaliz", "cerrad", "atendid", "complet")
+
+
+def _filtro_no_finalizada():
+    """
+    Devuelve un filtro SQLAlchemy que excluye solicitudes cuyo campo `estado`
+    contenga alguna de las palabras clave de estados finalizados.
+    Aplica sobre Solicitud.estado (string), que siempre está sincronizado con
+    el catálogo estados_solicitud.nombre cuando se edita vía estado_id.
+    """
+    return not_(
+        or_(*[Solicitud.estado.ilike(f"%{kw}%") for kw in _KEYWORDS_FINALIZADAS])
+    )
+
+
+# ── Endpoint legado /stats ─────────────────────────────────────────────────────
 
 @router.get("/stats")
 async def get_dashboard_stats(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Totales generales
+    # Totales generales (históricos — sin filtro de estado)
     total = (await db.execute(select(func.count(Solicitud.id)))).scalar() or 0
     dentro_ans = (await db.execute(
         select(func.count(PrediccionANS.id)).where(PrediccionANS.cumple_ans == True)
@@ -65,7 +85,7 @@ async def get_dashboard_stats(
     # Tendencia últimos 7 días
     tendencia_q = await db.execute(
         text("""
-            SELECT 
+            SELECT
                 DATE(s.created_at AT TIME ZONE 'UTC') as fecha,
                 COUNT(*) as total,
                 COUNT(p.id) FILTER (WHERE p.cumple_ans = true) as dentro,
@@ -97,6 +117,8 @@ async def get_dashboard_stats(
     }
 
 
+# ── Endpoint principal /resumen ────────────────────────────────────────────────
+
 @router.get("/resumen")
 async def get_dashboard_resumen(
     db: AsyncSession = Depends(get_db),
@@ -104,13 +126,20 @@ async def get_dashboard_resumen(
 ):
     """
     Endpoint operativo del dashboard ANS.
-    Devuelve en una sola llamada: KPIs, solicitudes en riesgo, carga por ejecutivo,
-    sin asignar, distribución por riesgo y tendencia semanal.
-    Usa datos reales de la tabla solicitudes (campo probabilidad/prediccion del RF v2).
+
+    Métricas HISTÓRICAS (incluyen finalizadas):
+      - total, fuera_ans, dentro_ans, tendencia_semanal
+      - desglose de estados (pendientes, en_proceso, finalizadas)
+
+    Métricas OPERATIVAS (solo solicitudes activas — excluyen finalizadas):
+      - solicitudes_riesgo, alto_riesgo, criticos, dist_riesgo,
+        promedio_riesgo, sin_asignar, carga_ejecutivos.en_riesgo
     """
     from app.models.user import User as UserORM
 
-    # ── Conteos básicos ──────────────────────────────────────────────────
+    activa = _filtro_no_finalizada()
+
+    # ── KPIs históricos (sin filtro de estado) ──────────────────────────────
     total = (await db.execute(select(func.count(Solicitud.id)))).scalar() or 0
 
     fuera_ans_n = (await db.execute(
@@ -121,35 +150,53 @@ async def get_dashboard_resumen(
         select(func.count(Solicitud.id)).where(Solicitud.prediccion == "Dentro de ANS")
     )).scalar() or 0
 
+    # ── KPIs operativos (solo solicitudes activas) ──────────────────────────
     sin_asignar_n = (await db.execute(
-        select(func.count(Solicitud.id)).where(Solicitud.ejecutivo_id.is_(None))
+        select(func.count(Solicitud.id)).where(
+            activa,
+            Solicitud.ejecutivo_id.is_(None),
+        )
     )).scalar() or 0
 
     alto_riesgo_n = (await db.execute(
         select(func.count(Solicitud.id)).where(
-            and_(Solicitud.probabilidad.isnot(None),
-                 Solicitud.probabilidad >= 0.70,
-                 Solicitud.probabilidad < 0.90)
+            activa,
+            Solicitud.probabilidad.isnot(None),
+            Solicitud.probabilidad >= 0.70,
+            Solicitud.probabilidad < 0.90,
         )
     )).scalar() or 0
 
     criticos_n = (await db.execute(
         select(func.count(Solicitud.id)).where(
-            and_(Solicitud.probabilidad.isnot(None), Solicitud.probabilidad >= 0.90)
+            activa,
+            Solicitud.probabilidad.isnot(None),
+            Solicitud.probabilidad >= 0.90,
         )
     )).scalar() or 0
 
     promedio_riesgo = float((await db.execute(
-        select(func.avg(Solicitud.probabilidad)).where(Solicitud.probabilidad.isnot(None))
+        select(func.avg(Solicitud.probabilidad)).where(
+            activa,
+            Solicitud.probabilidad.isnot(None),
+        )
     )).scalar() or 0.0)
 
+    # Alertas no leídas: solo alertas activas (resuelta=False) del usuario actual
+    # Como las alertas se auto-resuelven al finalizar la solicitud, este conteo
+    # es naturalmente correcto, pero filtramos resuelta=False por seguridad.
     alertas_no_leidas_n = (await db.execute(
         select(func.count(Alerta.id)).where(
-            and_(Alerta.usuario_id == current_user.id, Alerta.leida == False)
+            or_(
+                Alerta.usuario_id == current_user.id,
+                Alerta.usuario_id == None,
+            ),
+            Alerta.leida == False,
+            Alerta.resuelta == False,
         )
     )).scalar() or 0
 
-    # ── Breakdown de estados (por nombre real del catálogo) ──────────────
+    # ── Breakdown de estados (histórico — todos los estados) ─────────────────
     estado_q = await db.execute(text("""
         SELECT COALESCE(es.nombre, s.estado) AS est, COUNT(*) AS n
         FROM solicitudes s
@@ -166,24 +213,27 @@ async def get_dashboard_resumen(
 
     pendientes_n  = _match("pendiente")
     en_proceso_n  = _match("proceso", "progreso", "curso")
-    finalizadas_n = _match("finaliz", "complet", "cerrad")
+    finalizadas_n = _match("finaliz", "complet", "cerrad", "atendid")
 
-    # ── Distribución por riesgo (usando probabilidad real del RF v2) ─────
+    # ── Distribución de riesgo — SOLO solicitudes activas ───────────────────
     dist_bajo = (await db.execute(
         select(func.count(Solicitud.id)).where(
-            and_(Solicitud.probabilidad.isnot(None), Solicitud.probabilidad < 0.40)
+            activa,
+            Solicitud.probabilidad.isnot(None),
+            Solicitud.probabilidad < 0.40,
         )
     )).scalar() or 0
 
     dist_medio = (await db.execute(
         select(func.count(Solicitud.id)).where(
-            and_(Solicitud.probabilidad.isnot(None),
-                 Solicitud.probabilidad >= 0.40,
-                 Solicitud.probabilidad < 0.70)
+            activa,
+            Solicitud.probabilidad.isnot(None),
+            Solicitud.probabilidad >= 0.40,
+            Solicitud.probabilidad < 0.70,
         )
     )).scalar() or 0
 
-    # ── Top 10 solicitudes en riesgo ────────────────────────────────────
+    # ── Top 10 solicitudes en riesgo — SOLO activas ──────────────────────────
     riesgo_rows = (await db.execute(
         select(Solicitud).options(
             selectinload(Solicitud.tipo_solicitud),
@@ -194,10 +244,11 @@ async def get_dashboard_resumen(
             selectinload(Solicitud.ejecutivo_rel),
         )
         .where(
+            activa,
             or_(
                 Solicitud.prediccion == "Fuera de ANS",
-                and_(Solicitud.probabilidad.isnot(None), Solicitud.probabilidad >= 0.70)
-            )
+                and_(Solicitud.probabilidad.isnot(None), Solicitud.probabilidad >= 0.70),
+            ),
         )
         .order_by(desc(Solicitud.probabilidad))
         .limit(10)
@@ -221,13 +272,13 @@ async def get_dashboard_resumen(
         for s in riesgo_rows
     ]
 
-    # ── Top 5 sin asignar ────────────────────────────────────────────────
+    # ── Top 5 sin asignar — SOLO activas ────────────────────────────────────
     sin_asig_rows = (await db.execute(
         select(Solicitud).options(
             selectinload(Solicitud.tipo_solicitud),
             selectinload(Solicitud.prioridad_rel),
         )
-        .where(Solicitud.ejecutivo_id.is_(None))
+        .where(activa, Solicitud.ejecutivo_id.is_(None))
         .order_by(desc(Solicitud.created_at))
         .limit(5)
     )).scalars().all()
@@ -244,13 +295,15 @@ async def get_dashboard_resumen(
         for s in sin_asig_rows
     ]
 
-    # ── Carga por ejecutivo ──────────────────────────────────────────────
+    # ── Carga por ejecutivo — en_riesgo solo cuenta solicitudes activas ──────
     carga_q = await db.execute(
         select(
             UserORM.full_name,
             func.count(Solicitud.id).label("total"),
             func.count(Solicitud.id).filter(
-                and_(Solicitud.probabilidad.isnot(None), Solicitud.probabilidad >= 0.70)
+                activa,
+                Solicitud.probabilidad.isnot(None),
+                Solicitud.probabilidad >= 0.70,
             ).label("en_riesgo"),
         )
         .join(Solicitud, Solicitud.ejecutivo_id == UserORM.id)
@@ -272,7 +325,7 @@ async def get_dashboard_resumen(
         if r[1] > 0
     ]
 
-    # ── Tendencia semanal (últimos 7 días) ───────────────────────────────
+    # ── Tendencia semanal (histórico — incluye todas) ────────────────────────
     tendencia_q = await db.execute(text("""
         SELECT
             DATE(s.created_at AT TIME ZONE 'UTC') AS fecha,
@@ -289,10 +342,11 @@ async def get_dashboard_resumen(
     ]
 
     return {
-        # KPIs
+        # KPIs históricos
         "total": total,
         "fuera_ans": fuera_ans_n,
         "dentro_ans": dentro_ans_n,
+        # KPIs operativos (activas)
         "pendientes": pendientes_n,
         "en_proceso": en_proceso_n,
         "finalizadas": finalizadas_n,
@@ -301,7 +355,7 @@ async def get_dashboard_resumen(
         "criticos": criticos_n,
         "promedio_riesgo": round(promedio_riesgo, 3),
         "alertas_no_leidas": alertas_no_leidas_n,
-        # Distribuciones
+        # Distribuciones (activas)
         "estados": estados_list,
         "dist_riesgo": {
             "bajo": dist_bajo,
@@ -309,7 +363,7 @@ async def get_dashboard_resumen(
             "alto": alto_riesgo_n,
             "critico": criticos_n,
         },
-        # Listas operativas
+        # Listas operativas (activas)
         "solicitudes_riesgo": solicitudes_riesgo,
         "sin_asignar_lista": sin_asignar_lista,
         "carga_ejecutivos": carga_ejecutivos,
