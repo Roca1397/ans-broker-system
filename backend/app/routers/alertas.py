@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, desc, or_
+from sqlalchemy import select, update, desc, or_, not_
 from sqlalchemy.orm import selectinload
 from typing import List
 
@@ -126,3 +126,77 @@ async def marcar_todas_leidas(
     )
     await db.commit()
     return {"ok": True}
+
+
+# ── Backfill: genera alertas para solicitudes ya predichas "Fuera de ANS" ────
+
+_KEYWORDS_FINALIZADAS = ("finaliz", "cerrad", "atendid", "complet")
+_UMBRAL_BACKFILL = 0.45
+
+
+@router.post("/backfill", status_code=200)
+async def backfill_alertas(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Genera alertas para todas las solicitudes que ya tienen prediccion='Fuera de ANS'
+    y no tienen alerta activa. Idempotente: no duplica si ya existe una alerta activa.
+
+    Solo accesible para administradores.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(403, "Solo administradores pueden ejecutar el backfill de alertas")
+
+    candidatas = (await db.execute(
+        select(Solicitud).where(
+            Solicitud.prediccion == "Fuera de ANS",
+            Solicitud.probabilidad.isnot(None),
+            Solicitud.probabilidad >= _UMBRAL_BACKFILL,
+            not_(
+                or_(*[Solicitud.estado.ilike(f"%{kw}%") for kw in _KEYWORDS_FINALIZADAS])
+            ),
+        )
+    )).scalars().all()
+
+    creadas = 0
+    omitidas = 0
+
+    for sol in candidatas:
+        existing = (await db.execute(
+            select(Alerta).where(
+                Alerta.solicitud_id == sol.id,
+                Alerta.resuelta == False,
+                Alerta.tipo.in_(list(_TIPOS_RIESGO)),
+            )
+        )).scalar_one_or_none()
+
+        if existing:
+            omitidas += 1
+            continue
+
+        prob = sol.probabilidad
+        pct = round(prob * 100)
+        ticket = sol.nro_ticket or str(sol.id)[:8].upper()
+        cliente = sol.cliente or "Sin cliente"
+        tipo = "critico" if prob >= 0.80 else "alto_riesgo"
+        mensaje = f"{ticket} — {cliente} — Riesgo de incumplimiento: {pct}%"
+
+        db.add(Alerta(
+            solicitud_id=sol.id,
+            tipo=tipo,
+            mensaje=mensaje,
+            probabilidad=prob,
+            usuario_id=sol.ejecutivo_id,
+            resuelta=False,
+            leida=False,
+        ))
+        creadas += 1
+
+    await db.commit()
+    return {
+        "ok": True,
+        "candidatas": len(candidatas),
+        "alertas_creadas": creadas,
+        "ya_tenian_alerta": omitidas,
+    }

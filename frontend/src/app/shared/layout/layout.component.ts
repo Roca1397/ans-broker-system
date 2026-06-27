@@ -372,7 +372,7 @@ import { Alerta } from '../../models/models';
       padding: 0 24px; position: sticky; top: 0; z-index: 50;
       box-shadow: 0 1px 8px rgba(11,37,69,.05);
     }
-    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
     .mobile-menu-btn {
       display: none; background: none; border: none;
       color: var(--text-secondary); cursor: pointer; padding: 4px;
