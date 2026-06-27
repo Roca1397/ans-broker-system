@@ -37,20 +37,27 @@ async def get_alertas(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Devuelve alertas activas (resuelta=False) del usuario actual.
-    Incluye alertas sin usuario asignado (usuario_id=NULL) — visibles para todos.
+    Devuelve alertas activas (resuelta=False).
+    - Admins: ven TODAS las alertas activas (sin filtro por usuario).
+    - Ejecutivos: ven las propias + las broadcast (usuario_id=NULL).
     """
-    query = (
-        select(Alerta)
-        .options(selectinload(Alerta.solicitud))
-        .where(
+    base_filter = [
+        Alerta.resuelta == False,
+        Alerta.tipo.in_(list(_TIPOS_RIESGO)),
+    ]
+
+    if current_user.role != "admin":
+        base_filter.append(
             or_(
                 Alerta.usuario_id == current_user.id,
                 Alerta.usuario_id == None,
-            ),
-            Alerta.resuelta == False,
-            Alerta.tipo.in_(list(_TIPOS_RIESGO)),
+            )
         )
+
+    query = (
+        select(Alerta)
+        .options(selectinload(Alerta.solicitud))
+        .where(*base_filter)
         .order_by(desc(Alerta.created_at))
         .offset(skip)
         .limit(limit)
@@ -69,19 +76,21 @@ async def count_alertas_no_leidas(
 ):
     """Devuelve el conteo de alertas activas no leídas para el badge de la campanita."""
     from sqlalchemy import func
-    q = (
-        select(func.count())
-        .select_from(Alerta)
-        .where(
+
+    count_filter = [
+        Alerta.resuelta == False,
+        Alerta.leida == False,
+        Alerta.tipo.in_(list(_TIPOS_RIESGO)),
+    ]
+    if current_user.role != "admin":
+        count_filter.append(
             or_(
                 Alerta.usuario_id == current_user.id,
                 Alerta.usuario_id == None,
-            ),
-            Alerta.resuelta == False,
-            Alerta.leida == False,
-            Alerta.tipo.in_(list(_TIPOS_RIESGO)),
+            )
         )
-    )
+
+    q = select(func.count()).select_from(Alerta).where(*count_filter)
     count = (await db.execute(q)).scalar() or 0
     return {"count": count}
 
@@ -187,7 +196,7 @@ async def backfill_alertas(
             tipo=tipo,
             mensaje=mensaje,
             probabilidad=prob,
-            usuario_id=sol.ejecutivo_id,
+            usuario_id=None,   # broadcast: visible a todos los usuarios
             resuelta=False,
             leida=False,
         ))
