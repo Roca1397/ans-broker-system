@@ -725,7 +725,7 @@ async def descargar_eml_principal(
     if file_path:
         return FileResponse(path=file_path, filename=display_name, media_type="message/rfc822")
 
-    raise HTTPException(404, "Archivo .eml no disponible en disco")
+    raise HTTPException(404, "El archivo ya no se encuentra disponible en el servidor.")
 
 
 @router.get("/{solicitud_id}/adjuntos/{nombre}")
@@ -766,7 +766,7 @@ async def descargar_adjunto_por_nombre(
             if file_path:
                 return FileResponse(path=file_path, filename=display_name, media_type=content_type)
 
-            raise HTTPException(404, "Archivo no disponible en disco")
+            raise HTTPException(404, "El archivo ya no se encuentra disponible en el servidor.")
 
     raise HTTPException(404, f"Adjunto '{nombre}' no encontrado en esta solicitud")
 

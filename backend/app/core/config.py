@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # ── Integración Power Automate / Outlook ──────────────────────
     POWER_AUTOMATE_API_KEY: str = os.getenv("POWER_AUTOMATE_API_KEY", "abc123")
-    UPLOADS_DIR: str = "./uploads"
+    UPLOADS_DIR: str = os.getenv("UPLOADS_DIR", "./uploads")
     EMAILS_SUBDIR: str = "emails"
 
     # ── ML ────────────────────────────────────────────────────────
