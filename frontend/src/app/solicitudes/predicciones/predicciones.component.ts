@@ -1,16 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
-import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PrediccionesService } from '../../services/api.service';
 import { SolicitudConPrediccion } from '../../models/models';
+import { SolicitudDetallePanelComponent } from '../../shared/solicitud-detalle-panel/solicitud-detalle-panel.component';
 
 type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'criticas';
 
 @Component({
   selector: 'app-predicciones',
   standalone: true,
-  imports: [CommonModule, FormsModule, DecimalPipe, DatePipe],
+  imports: [CommonModule, FormsModule, DecimalPipe, DatePipe, SolicitudDetallePanelComponent],
   template: `
     <div class="page-header flex-between">
       <div>
@@ -124,6 +124,13 @@ type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'crit
         </button>
       </div>
     </div>
+
+    <!-- ── SIDE PANEL (shared component) ────────────────────────── -->
+    <app-solicitud-detalle-panel
+      [solicitudId]="selectedSolicitudId"
+      (closed)="onPanelClosed()"
+      (saved)="onPanelSaved()">
+    </app-solicitud-detalle-panel>
   `,
   styles: [`
     .page-header { margin-bottom: 6px; }
@@ -234,7 +241,9 @@ export class PrediccionesComponent implements OnInit {
     { key: 'criticas',    label: 'Críticas ≥ 90%' },
   ];
 
-  constructor(private service: PrediccionesService, private router: Router) {}
+  selectedSolicitudId: string | null = null;
+
+  constructor(private service: PrediccionesService) {}
 
   ngOnInit() { this.load(); }
 
@@ -306,10 +315,12 @@ export class PrediccionesComponent implements OnInit {
   }
 
   verSolicitud(s: SolicitudConPrediccion) {
-    this.router.navigate(['/solicitudes'], {
-      queryParams: { search: s.nro_ticket || s.id },
-    });
+    this.selectedSolicitudId = s.id;
   }
+
+  onPanelClosed() { this.selectedSolicitudId = null; }
+
+  onPanelSaved() { this.load(); }
 
   getProbClass(nivel?: string): string {
     const map: Record<string, string> = { bajo: 'low', medio: 'medium', alto: 'high', critico: 'critical' };
