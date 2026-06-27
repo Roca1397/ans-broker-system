@@ -205,7 +205,7 @@ async def _guardar_prediccion_ans(
             tiempo_prediccion_ms=rf_result.get("tiempo_prediccion_ms", 0.0),
         ))
 
-    await gestionar_alerta_riesgo(db, solicitud, prob)
+    await gestionar_alerta_riesgo(db, solicitud, prob, pred)
 
 
 # ════════════════════════════════════════════════════════════════════

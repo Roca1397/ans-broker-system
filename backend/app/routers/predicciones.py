@@ -93,7 +93,7 @@ async def _persistir_prediccion(
             tiempo_prediccion_ms=result.get("tiempo_prediccion_ms", 0.0),
         ))
 
-    await gestionar_alerta_riesgo(db, solicitud, prob)
+    await gestionar_alerta_riesgo(db, solicitud, prob, pred)
     await db.commit()
 
 

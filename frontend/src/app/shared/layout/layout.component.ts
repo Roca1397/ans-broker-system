@@ -234,12 +234,6 @@ import { Alerta } from '../../models/models';
                 </svg>
               </div>
               <div class="alert-item-body">
-                <div class="alert-item-header">
-                  <span class="alert-ticket">{{ a.nro_ticket || '—' }}</span>
-                  <span class="alert-prob" [class.critico]="a.tipo === 'critico'">
-                    {{ a.probabilidad != null ? (a.probabilidad * 100 | number:'1.0-0') + '%' : '' }}
-                  </span>
-                </div>
                 <p class="alert-msg">{{ a.mensaje }}</p>
                 <small class="alert-time">{{ a.created_at | date:'dd MMM yyyy, HH:mm' }}</small>
               </div>
