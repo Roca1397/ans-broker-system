@@ -98,16 +98,6 @@ class AseguradoraOut(BaseModel):
         from_attributes = True
 
 
-class TipoOperacionOut(BaseModel):
-    id: int
-    nombre: str
-    codigo: str
-    peso_complejidad: float
-
-    class Config:
-        from_attributes = True
-
-
 # ── CATÁLOGOS NUEVOS ──────────────────────────────────────────────
 class CatalogoBase(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=255)
@@ -388,7 +378,7 @@ class DashboardStats(BaseModel):
     pendientes: int
     vencidos: int
     por_aseguradora: List[dict]
-    por_tipo_operacion: List[dict]
+    por_tipo_solicitud: List[dict]
     tendencia_semanal: List[dict]
 
 

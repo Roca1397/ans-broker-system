@@ -112,7 +112,7 @@ async def get_dashboard_stats(
         "pendientes": pendientes,
         "alertas_no_leidas": alertas_no_leidas,
         "por_aseguradora": por_aseguradora,
-        "por_tipo_operacion": por_tipo,
+        "por_tipo_solicitud": por_tipo,
         "tendencia_semanal": tendencia_semanal,
     }
 

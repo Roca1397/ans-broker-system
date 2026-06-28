@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import {
   Solicitud, SolicitudConPrediccion, Prediccion, PrediccionRF, DashboardStats,
-  Alerta, Aseguradora, TipoOperacion, PaginatedResponse,
+  Alerta, Aseguradora, PaginatedResponse,
   SolicitudListItem, SolicitudDetail, SolicitudUpdate,
   CatalogoItem, Cliente, ClienteRemitente, EjecutivoUser, User,
 } from '../models/models';
@@ -180,10 +180,6 @@ export class CatalogosService {
 
   getAseguradoras() {
     return this.http.get<Aseguradora[]>(`${this.base}/aseguradoras`);
-  }
-
-  getTiposOperacion() {
-    return this.http.get<TipoOperacion[]>(`${this.base}/tipos-operacion`);
   }
 
   getTiposSolicitud() {

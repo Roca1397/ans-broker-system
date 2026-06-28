@@ -20,10 +20,10 @@ from typing import List
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.solicitud import (
-    Aseguradora, TipoOperacion,
+    Aseguradora,
     TipoSolicitud, EstadoSolicitud, Prioridad, Ramo, Cliente,
 )
-from app.schemas.schemas import AseguradoraOut, TipoOperacionOut, CatalogoOut, ClienteOut
+from app.schemas.schemas import AseguradoraOut, CatalogoOut, ClienteOut
 
 router = APIRouter()
 
@@ -32,14 +32,6 @@ router = APIRouter()
 async def get_aseguradoras(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     result = await db.execute(
         select(Aseguradora).where(Aseguradora.is_active == True).order_by(Aseguradora.nombre)
-    )
-    return result.scalars().all()
-
-
-@router.get("/tipos-operacion", response_model=List[TipoOperacionOut])
-async def get_tipos_operacion(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    result = await db.execute(
-        select(TipoOperacion).where(TipoOperacion.is_active == True).order_by(TipoOperacion.nombre)
     )
     return result.scalars().all()
 

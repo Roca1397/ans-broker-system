@@ -1,7 +1,7 @@
 """
 Modelos SQLAlchemy del módulo de Solicitudes (Outlook + Power Automate ready).
 
-Se preserva la estructura original (Aseguradora, TipoOperacion, PrediccionANS, Alerta)
+Se preserva la estructura original (Aseguradora, PrediccionANS, Alerta)
 y se EXTIENDE con:
   - nuevos catálogos: ramos, tipos_solicitud, estados_solicitud, prioridades
   - nuevas entidades: clientes, clientes_remitentes
@@ -42,17 +42,6 @@ class Aseguradora(Base):
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     solicitudes = relationship("Solicitud", back_populates="aseguradora")
-
-
-class TipoOperacion(Base):
-    """Catálogo legado mantenido para compatibilidad."""
-    __tablename__ = "tipos_operacion"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    nombre = Column(String(255), nullable=False)
-    codigo = Column(String(50), unique=True, nullable=False)
-    peso_complejidad = Column(Float, default=1.0)
-    is_active = Column(Boolean, default=True)
 
 
 class TipoSolicitud(Base):

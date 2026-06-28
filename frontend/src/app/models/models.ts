@@ -29,13 +29,6 @@ export interface Aseguradora {
   activo?: boolean;
 }
 
-export interface TipoOperacion {
-  id: number;
-  nombre: string;
-  codigo: string;
-  peso_complejidad: number;
-}
-
 export interface CatalogoItem {
   id: number;
   nombre: string;
@@ -187,7 +180,7 @@ export interface DashboardStats {
   pendientes: number;
   alertas_no_leidas: number;
   por_aseguradora: { nombre: string; total: number }[];
-  por_tipo_operacion: { nombre: string; total: number }[];
+  por_tipo_solicitud: { nombre: string; total: number }[];
   tendencia_semanal: { fecha: string; total: number; dentro: number; fuera: number }[];
   vencidos?: number;
 }
