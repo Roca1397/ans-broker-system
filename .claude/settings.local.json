@@ -8,7 +8,8 @@
       "Bash(Sort-Object FullName)",
       "Bash(npx ng *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(npm run *)"
     ]
   }
 }

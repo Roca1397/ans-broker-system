@@ -197,6 +197,7 @@ export class AnsCumplimientoComponent implements OnChanges {
   readonly svgH = 130;
   readonly padT = 22;
   readonly padB = 18;
+  readonly padL = 10;
   readonly barW = 80;
   readonly gap  = 40;
 
