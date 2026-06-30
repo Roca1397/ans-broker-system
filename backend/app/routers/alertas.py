@@ -11,7 +11,15 @@ from app.models.user import User
 
 router = APIRouter()
 
-_TIPOS_RIESGO = ("alto_riesgo", "critico")
+_TIPOS_RIESGO      = ("alto_riesgo", "critico")
+_ESTADOS_TERMINALES = ("finaliz", "cerrad", "atendid", "complet")
+
+
+def _filtro_solicitud_activa():
+    """Excluye alertas cuya solicitud ya está en estado terminal."""
+    return not_(
+        or_(*[Solicitud.estado.ilike(f"%{kw}%") for kw in _ESTADOS_TERMINALES])
+    )
 
 
 def _alerta_to_dict(a: Alerta) -> dict:
@@ -25,6 +33,7 @@ def _alerta_to_dict(a: Alerta) -> dict:
         "created_at": a.created_at,
         "nro_ticket": a.solicitud.nro_ticket if a.solicitud else None,
         "solicitud_id": str(a.solicitud_id),
+        "estado_solicitud": a.solicitud.estado if a.solicitud else None,
     }
 
 
@@ -56,8 +65,10 @@ async def get_alertas(
 
     query = (
         select(Alerta)
+        .join(Solicitud, Alerta.solicitud_id == Solicitud.id)
         .options(selectinload(Alerta.solicitud))
         .where(*base_filter)
+        .where(_filtro_solicitud_activa())
         .order_by(desc(Alerta.created_at))
         .offset(skip)
         .limit(limit)
@@ -90,7 +101,13 @@ async def count_alertas_no_leidas(
             )
         )
 
-    q = select(func.count()).select_from(Alerta).where(*count_filter)
+    q = (
+        select(func.count())
+        .select_from(Alerta)
+        .join(Solicitud, Alerta.solicitud_id == Solicitud.id)
+        .where(*count_filter)
+        .where(_filtro_solicitud_activa())
+    )
     count = (await db.execute(q)).scalar() or 0
     return {"count": count}
 

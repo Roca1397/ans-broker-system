@@ -42,6 +42,13 @@ export interface TendenciaDia {
   fuera_ans: number;
 }
 
+export interface AnsBreakdownItem {
+  cliente: string;
+  ramo: string;
+  dentro: number;
+  fuera: number;
+}
+
 export interface DistRiesgo {
   bajo: number;
   medio: number;

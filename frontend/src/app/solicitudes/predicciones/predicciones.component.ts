@@ -30,12 +30,23 @@ type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'crit
       <button class="not-found-close" (click)="notFoundMsg = null">✕</button>
     </div>
 
-    <!-- Filtros -->
+    <!-- Filtros ANS / riesgo -->
     <div class="filter-bar">
       <button *ngFor="let f of filtros" class="filter-btn" [class.active]="filtroActivo === f.key"
               (click)="setFiltro(f.key)">
         {{ f.label }}
         <span class="filter-count" *ngIf="getCount(f.key) > 0">{{ getCount(f.key) }}</span>
+      </button>
+    </div>
+
+    <!-- Filtros por estado operativo -->
+    <div class="filter-bar filter-bar-estado">
+      <span class="filter-label">Estado:</span>
+      <button *ngFor="let f of filtrosEstado" class="filter-btn filter-btn-estado"
+              [class.active]="filtroEstado === f.key"
+              (click)="setFiltroEstado(f.key)">
+        {{ f.label }}
+        <span class="filter-count" *ngIf="getCountEstado(f.key) > 0">{{ getCountEstado(f.key) }}</span>
       </button>
       <span class="filter-total">{{ filtered.length }} resultado{{ filtered.length !== 1 ? 's' : '' }}</span>
     </div>
@@ -185,6 +196,15 @@ type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'crit
     }
     .filter-total { margin-left: auto; font-size: 0.78rem; color: var(--text-muted); }
 
+    /* Segunda barra — filtro por estado */
+    .filter-bar-estado { margin-top: -8px; margin-bottom: 14px; }
+    .filter-label {
+      font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--text-muted); white-space: nowrap; align-self: center;
+    }
+    .filter-btn-estado.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+    .filter-btn-estado:hover:not(.active) { border-color: #6366f1; color: #6366f1; }
+
     /* Tabla */
     .table-wrap { padding: 0; overflow: hidden; }
     .table-scroller { overflow-x: auto; }
@@ -256,6 +276,7 @@ export class PrediccionesComponent implements OnInit {
   readonly limit = 100;
 
   filtroActivo: Filtro = 'todas';
+  filtroEstado = 'todas';
 
   filtros: { key: Filtro; label: string }[] = [
     { key: 'todas',       label: 'Todas' },
@@ -264,6 +285,13 @@ export class PrediccionesComponent implements OnInit {
     { key: 'riesgo_alto', label: 'Riesgo alto ≥ 70%' },
     { key: 'alertadas',   label: 'Alertadas ≥ 80%' },
     { key: 'criticas',    label: 'Críticas ≥ 90%' },
+  ];
+
+  filtrosEstado: { key: string; label: string }[] = [
+    { key: 'todas',      label: 'Todos los estados' },
+    { key: 'pendiente',  label: 'Pendiente' },
+    { key: 'en_proceso', label: 'En Proceso' },
+    { key: 'finalizado', label: 'Finalizado' },
   ];
 
   selectedSolicitudId: string | null = null;
@@ -336,38 +364,56 @@ export class PrediccionesComponent implements OnInit {
     this.applyFilter();
   }
 
+  setFiltroEstado(key: string) {
+    this.filtroEstado = key;
+    this.applyFilter();
+  }
+
   applyFilter() {
+    this.filtered = this._applyEstadoFilter(this._applyAnsFilter(this.items));
+  }
+
+  private _applyAnsFilter(items: SolicitudConPrediccion[]): SolicitudConPrediccion[] {
     switch (this.filtroActivo) {
-      case 'dentro':
-        this.filtered = this.items.filter(s => s.cumple_ans === true);
-        break;
-      case 'fuera':
-        this.filtered = this.items.filter(s => s.cumple_ans === false);
-        break;
-      case 'riesgo_alto':
-        this.filtered = this.items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.70);
-        break;
-      case 'alertadas':
-        this.filtered = this.items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.80);
-        break;
-      case 'criticas':
-        this.filtered = this.items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.90);
-        break;
-      default:
-        this.filtered = [...this.items];
+      case 'dentro':      return items.filter(s => s.cumple_ans === true);
+      case 'fuera':       return items.filter(s => s.cumple_ans === false);
+      case 'riesgo_alto': return items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.70);
+      case 'alertadas':   return items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.80);
+      case 'criticas':    return items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.90);
+      default:            return [...items];
     }
   }
 
+  private _applyEstadoFilter(items: SolicitudConPrediccion[]): SolicitudConPrediccion[] {
+    if (this.filtroEstado === 'todas') return items;
+    return items.filter(s => this._matchEstado(s.estado, this.filtroEstado));
+  }
+
+  private _matchEstado(estado: string, key: string): boolean {
+    const s = (estado || '').toLowerCase();
+    if (key === 'pendiente')  return s.includes('pendiente');
+    if (key === 'en_proceso') return s.includes('proceso') || s.includes('progres');
+    if (key === 'finalizado') return s.includes('finaliz') || s.includes('cerrad') || s.includes('atendid') || s.includes('complet');
+    return true;
+  }
+
   getCount(f: Filtro): number {
+    const base = this._applyEstadoFilter(this.items);
     switch (f) {
-      case 'todas':       return this.items.length;
-      case 'dentro':      return this.items.filter(s => s.cumple_ans === true).length;
-      case 'fuera':       return this.items.filter(s => s.cumple_ans === false).length;
-      case 'riesgo_alto': return this.items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.70).length;
-      case 'alertadas':   return this.items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.80).length;
-      case 'criticas':    return this.items.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.90).length;
+      case 'todas':       return base.length;
+      case 'dentro':      return base.filter(s => s.cumple_ans === true).length;
+      case 'fuera':       return base.filter(s => s.cumple_ans === false).length;
+      case 'riesgo_alto': return base.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.70).length;
+      case 'alertadas':   return base.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.80).length;
+      case 'criticas':    return base.filter(s => (s.probabilidad_riesgo ?? 0) >= 0.90).length;
       default:            return 0;
     }
+  }
+
+  getCountEstado(key: string): number {
+    const base = this._applyAnsFilter(this.items);
+    if (key === 'todas') return base.length;
+    return base.filter(s => this._matchEstado(s.estado, key)).length;
   }
 
   verSolicitud(s: SolicitudConPrediccion) {

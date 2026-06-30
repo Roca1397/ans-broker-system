@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.solicitud import (
-    Solicitud, PrediccionANS, Aseguradora, TipoSolicitud, Alerta, EstadoSolicitud,
+    Solicitud, PrediccionANS, Aseguradora, TipoSolicitud, Alerta, EstadoSolicitud, Ramo,
 )
 from app.models.user import User
 
@@ -342,7 +342,7 @@ async def get_dashboard_resumen(
     ]
 
     return {
-        # KPIs históricos
+        # KPIs historicos
         "total": total,
         "fuera_ans": fuera_ans_n,
         "dentro_ans": dentro_ans_n,
@@ -368,4 +368,46 @@ async def get_dashboard_resumen(
         "sin_asignar_lista": sin_asignar_lista,
         "carga_ejecutivos": carga_ejecutivos,
         "tendencia_semanal": tendencia_semanal,
+    }
+
+
+# ── Endpoint: Cumplimiento ANS por cliente y ramo ────────────────────────────
+
+@router.get("/ans-cumplimiento")
+async def get_ans_cumplimiento(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Desglose de cumplimiento ANS agrupado por cliente y ramo.
+    Solo incluye solicitudes con prediccion definida (Dentro/Fuera de ANS).
+    El frontend acumula y filtra los datos client-side.
+    """
+    rows = (await db.execute(
+        select(
+            Solicitud.cliente,
+            Ramo.nombre.label("ramo"),
+            func.count(Solicitud.id).filter(
+                Solicitud.prediccion == "Dentro de ANS"
+            ).label("dentro"),
+            func.count(Solicitud.id).filter(
+                Solicitud.prediccion == "Fuera de ANS"
+            ).label("fuera"),
+        )
+        .outerjoin(Ramo, Solicitud.ramo_id == Ramo.id)
+        .where(Solicitud.prediccion.in_(["Dentro de ANS", "Fuera de ANS"]))
+        .group_by(Solicitud.cliente, Ramo.nombre)
+        .order_by(Solicitud.cliente, Ramo.nombre)
+    )).all()
+
+    return {
+        "breakdown": [
+            {
+                "cliente": r[0] or "Sin cliente",
+                "ramo": r[1] or "Sin ramo",
+                "dentro": int(r[2] or 0),
+                "fuera": int(r[3] or 0),
+            }
+            for r in rows
+        ]
     }

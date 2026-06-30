@@ -8,16 +8,16 @@ import { RouterLink } from '@angular/router';
 import { forkJoin, Subject, takeUntil } from 'rxjs';
 
 import { DashboardDataService } from './dashboard.service';
-import { DashboardResumen } from './dashboard.models';
+import { DashboardResumen, AnsBreakdownItem } from './dashboard.models';
 import { Alerta } from '../models/models';
-import { KpiData, KpiCardComponent }      from './components/kpi-card.component';
-import { RiskPanelComponent }             from './components/risk-panel.component';
-import { StatusCardComponent }            from './components/status-card.component';
-import { CriticalRequestsComponent }      from './components/critical-requests.component';
-import { WorkloadComponent }              from './components/workload.component';
-import { AlertsComponent }                from './components/alerts.component';
-import { WeeklyTrendComponent }           from './components/weekly-trend.component';
-import { UnassignedComponent }            from './components/unassigned.component';
+import { KpiData, KpiCardComponent }        from './components/kpi-card.component';
+import { RiskPanelComponent }               from './components/risk-panel.component';
+import { StatusCardComponent }              from './components/status-card.component';
+import { CriticalRequestsComponent }        from './components/critical-requests.component';
+import { WorkloadComponent }                from './components/workload.component';
+import { AlertsComponent }                  from './components/alerts.component';
+import { AnsCumplimientoComponent }         from './components/ans-cumplimiento.component';
+import { UnassignedComponent }              from './components/unassigned.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,7 +29,7 @@ import { UnassignedComponent }            from './components/unassigned.componen
     CommonModule, RouterLink,
     KpiCardComponent, RiskPanelComponent, StatusCardComponent,
     CriticalRequestsComponent, WorkloadComponent, AlertsComponent,
-    WeeklyTrendComponent, UnassignedComponent,
+    AnsCumplimientoComponent, UnassignedComponent,
   ],
   template: `
 <div class="sla-dashboard">
@@ -104,10 +104,10 @@ import { UnassignedComponent }            from './components/unassigned.componen
       </app-unassigned>
     </div>
 
-    <!-- Alertas + Tendencia semanal -->
+    <!-- Alertas + Cumplimiento ANS por cliente/ramo -->
     <div class="bottom-row">
       <app-alerts [alertas]="alertas"></app-alerts>
-      <app-weekly-trend [data]="data.tendencia_semanal" class="trend-col"></app-weekly-trend>
+      <app-ans-cumplimiento [breakdown]="ansBreakdown"></app-ans-cumplimiento>
     </div>
 
   </ng-container>
@@ -118,6 +118,7 @@ import { UnassignedComponent }            from './components/unassigned.componen
 export class DashboardComponent implements OnInit, OnDestroy {
   data: DashboardResumen | null = null;
   alertas: Alerta[] = [];
+  ansBreakdown: AnsBreakdownItem[] = [];
   loading = false;
   error = false;
 
@@ -190,12 +191,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     forkJoin({
       resumen: this.dashService.getResumen(),
       alertas: this.dashService.getAlertasRecientes(6),
+      ans:     this.dashService.getAnsCumplimiento(),
     })
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: ({ resumen, alertas }) => {
-        this.data    = resumen;
-        this.alertas = alertas;
+      next: ({ resumen, alertas, ans }) => {
+        this.data         = resumen;
+        this.alertas      = alertas;
+        this.ansBreakdown = ans.breakdown;
         this.loading = false;
         this.cdr.markForCheck();
       },
