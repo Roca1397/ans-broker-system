@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PrediccionesService } from '../../services/api.service';
 import { SolicitudConPrediccion } from '../../models/models';
 import { SolicitudDetallePanelComponent } from '../../shared/solicitud-detalle-panel/solicitud-detalle-panel.component';
@@ -17,6 +18,16 @@ type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'crit
         <h1>Predicciones ANS</h1>
         <p class="page-sub">Solicitudes con predicción real del modelo Random Forest v2 · ordenadas por riesgo</p>
       </div>
+    </div>
+
+    <!-- Banner: solicitud de alerta no encontrada en predicciones -->
+    <div *ngIf="notFoundMsg" class="not-found-banner">
+      <svg viewBox="0 0 20 20" fill="none" width="16" height="16" style="flex-shrink:0">
+        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M10 7v4M10 13h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      {{ notFoundMsg }}
+      <button class="not-found-close" (click)="notFoundMsg = null">✕</button>
     </div>
 
     <!-- Filtros -->
@@ -137,6 +148,20 @@ type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'crit
     .page-header h1 { font-size: 1.5rem; color: var(--text-primary); }
     .page-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
 
+    /* Banner alerta no encontrada */
+    .not-found-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; margin-bottom: 14px;
+      background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.3);
+      border-radius: var(--radius); color: var(--text-secondary); font-size: 0.84rem;
+    }
+    .not-found-close {
+      margin-left: auto; background: none; border: none;
+      cursor: pointer; color: var(--text-muted); padding: 2px 6px;
+      border-radius: 4px; font-size: 0.78rem;
+    }
+    .not-found-close:hover { color: var(--text-primary); }
+
     /* Filtros */
     .filter-bar {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -242,13 +267,24 @@ export class PrediccionesComponent implements OnInit {
   ];
 
   selectedSolicitudId: string | null = null;
+  notFoundMsg: string | null = null;
 
-  constructor(private service: PrediccionesService) {}
+  private _pendingOpenId: string | null = null;
 
-  ngOnInit() { this.load(); }
+  constructor(
+    private service: PrediccionesService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
+
+  ngOnInit() {
+    this._pendingOpenId = this.route.snapshot.queryParamMap.get('solicitudId');
+    this.load();
+  }
 
   load() {
     this.loading = true;
+    this.notFoundMsg = null;
     this.skip = 0;
     this.service.resultados({ skip: 0, limit: this.limit }).subscribe({
       next: (data) => {
@@ -256,8 +292,28 @@ export class PrediccionesComponent implements OnInit {
         this.canLoadMore = data.length === this.limit;
         this.applyFilter();
         this.loading = false;
+        this._tryOpenPending();
       },
       error: () => { this.loading = false; },
+    });
+  }
+
+  private _tryOpenPending() {
+    const id = this._pendingOpenId;
+    if (!id) return;
+    this._pendingOpenId = null;
+
+    const found = this.items.find(s => s.id === id);
+    if (found) {
+      this.selectedSolicitudId = found.id;
+    } else {
+      this.notFoundMsg = 'La solicitud de la alerta no tiene predicción registrada aún. Puede buscarla en el módulo Solicitudes.';
+    }
+    // Limpiar query param de la URL sin recargar el componente
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
     });
   }
 

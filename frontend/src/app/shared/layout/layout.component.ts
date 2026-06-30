@@ -524,10 +524,8 @@ export class LayoutComponent {
     if (!a.leida) {
       this.alertasService.marcarLeida(a.id).subscribe(() => this.loadAlerts());
     }
-    if (a.nro_ticket) {
-      this.router.navigate(['/solicitudes'], { queryParams: { search: a.nro_ticket } });
-    } else {
-      this.router.navigate(['/solicitudes']);
-    }
+    this.router.navigate(['/predicciones'], {
+      queryParams: { solicitudId: a.solicitud_id },
+    });
   }
 }
