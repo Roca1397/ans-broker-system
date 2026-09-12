@@ -13,22 +13,39 @@ from app.models.user import User
 router = APIRouter()
 
 # ── Estados que indican solicitud "cerrada" / no operativa ────────────────────
-# Se usan como filtro de exclusión en todas las métricas de riesgo operativo.
-# Coincidencia por subcadena (ILIKE) contra solicitudes.estado (campo sincronizado
-# con estados_solicitud.nombre cuando se actualiza via estado_id).
 _KEYWORDS_FINALIZADAS = ("finaliz", "cerrad", "atendid", "complet")
 
 
 def _filtro_no_finalizada():
-    """
-    Devuelve un filtro SQLAlchemy que excluye solicitudes cuyo campo `estado`
-    contenga alguna de las palabras clave de estados finalizados.
-    Aplica sobre Solicitud.estado (string), que siempre está sincronizado con
-    el catálogo estados_solicitud.nombre cuando se edita vía estado_id.
-    """
     return not_(
         or_(*[Solicitud.estado.ilike(f"%{kw}%") for kw in _KEYWORDS_FINALIZADAS])
     )
+
+
+def _scope_filters(user: User) -> list:
+    """
+    Devuelve filtros SQLAlchemy según el rol del usuario autenticado.
+
+    - admin     → lista vacía (sin filtro, ve todo el sistema)
+    - ejecutivo → filtra por ejecutivo_id == user.id
+                  (solo sus solicitudes asignadas; las sin asignar quedan excluidas)
+
+    El filtrado se hace por UUID (user.id), nunca por nombre,
+    para evitar colisiones y problemas ante cambios de nombre.
+    """
+    if user.role == "admin":
+        return []
+    return [Solicitud.ejecutivo_id == user.id]
+
+
+def _scope_text(user: User) -> tuple[str, dict]:
+    """
+    Devuelve (cláusula SQL extra, params) para queries raw text().
+    Uso: WHERE s.created_at >= ... {clause}, params
+    """
+    if user.role == "admin":
+        return "", {}
+    return "AND s.ejecutivo_id = :eid", {"eid": str(user.id)}
 
 
 # ── Endpoint legado /stats ─────────────────────────────────────────────────────
@@ -38,53 +55,86 @@ async def get_dashboard_stats(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Totales generales (históricos — sin filtro de estado)
-    total = (await db.execute(select(func.count(Solicitud.id)))).scalar() or 0
-    dentro_ans = (await db.execute(
-        select(func.count(PrediccionANS.id)).where(PrediccionANS.cumple_ans == True)
-    )).scalar() or 0
-    fuera_ans = (await db.execute(
-        select(func.count(PrediccionANS.id)).where(PrediccionANS.cumple_ans == False)
-    )).scalar() or 0
-    criticos = (await db.execute(
-        select(func.count(PrediccionANS.id)).where(PrediccionANS.nivel_riesgo == "critico")
-    )).scalar() or 0
-    alto_riesgo = (await db.execute(
-        select(func.count(PrediccionANS.id)).where(PrediccionANS.nivel_riesgo == "alto")
-    )).scalar() or 0
-    promedio_riesgo = (await db.execute(
-        select(func.avg(PrediccionANS.probabilidad_riesgo))
-    )).scalar() or 0.0
-    pendientes = (await db.execute(
-        select(func.count(Solicitud.id)).where(Solicitud.estado == "pendiente")
-    )).scalar() or 0
-    alertas_no_leidas = (await db.execute(
-        select(func.count(Alerta.id)).where(Alerta.leida == False)
+    scope = _scope_filters(current_user)
+
+    total = (await db.execute(
+        select(func.count(Solicitud.id)).where(*scope)
     )).scalar() or 0
 
-    # Por aseguradora
+    # PrediccionANS debe joinarse con Solicitud para aplicar el scope
+    dentro_ans = (await db.execute(
+        select(func.count(PrediccionANS.id))
+        .join(Solicitud, PrediccionANS.solicitud_id == Solicitud.id)
+        .where(PrediccionANS.cumple_ans == True, *scope)
+    )).scalar() or 0
+
+    fuera_ans = (await db.execute(
+        select(func.count(PrediccionANS.id))
+        .join(Solicitud, PrediccionANS.solicitud_id == Solicitud.id)
+        .where(PrediccionANS.cumple_ans == False, *scope)
+    )).scalar() or 0
+
+    criticos = (await db.execute(
+        select(func.count(PrediccionANS.id))
+        .join(Solicitud, PrediccionANS.solicitud_id == Solicitud.id)
+        .where(PrediccionANS.nivel_riesgo == "critico", *scope)
+    )).scalar() or 0
+
+    alto_riesgo = (await db.execute(
+        select(func.count(PrediccionANS.id))
+        .join(Solicitud, PrediccionANS.solicitud_id == Solicitud.id)
+        .where(PrediccionANS.nivel_riesgo == "alto", *scope)
+    )).scalar() or 0
+
+    promedio_riesgo = (await db.execute(
+        select(func.avg(PrediccionANS.probabilidad_riesgo))
+        .join(Solicitud, PrediccionANS.solicitud_id == Solicitud.id)
+        .where(*scope)
+    )).scalar() or 0.0
+
+    pendientes = (await db.execute(
+        select(func.count(Solicitud.id))
+        .where(Solicitud.estado == "pendiente", *scope)
+    )).scalar() or 0
+
+    if current_user.role == "admin":
+        alertas_no_leidas = (await db.execute(
+            select(func.count(Alerta.id))
+            .where(Alerta.leida == False)
+        )).scalar() or 0
+    else:
+        alertas_no_leidas = (await db.execute(
+            select(func.count(Alerta.id))
+            .where(
+                or_(Alerta.usuario_id == current_user.id, Alerta.usuario_id == None),
+                Alerta.leida == False,
+            )
+        )).scalar() or 0
+
+    # Por aseguradora — outer join; con scope activo se filtra a las del ejecutivo
     por_aseg_q = await db.execute(
         select(Aseguradora.nombre, func.count(Solicitud.id).label("total"))
         .join(Solicitud, Solicitud.aseguradora_id == Aseguradora.id, isouter=True)
+        .where(*scope)
         .group_by(Aseguradora.nombre)
         .order_by(func.count(Solicitud.id).desc())
         .limit(8)
     )
     por_aseguradora = [{"nombre": r[0], "total": r[1]} for r in por_aseg_q]
 
-    # Por tipo de solicitud
     por_tipo_q = await db.execute(
         select(TipoSolicitud.nombre, func.count(Solicitud.id).label("total"))
         .join(Solicitud, Solicitud.tipo_solicitud_id == TipoSolicitud.id, isouter=True)
+        .where(*scope)
         .group_by(TipoSolicitud.nombre)
         .order_by(func.count(Solicitud.id).desc())
         .limit(8)
     )
     por_tipo = [{"nombre": r[0], "total": r[1]} for r in por_tipo_q]
 
-    # Tendencia últimos 7 días
+    t_clause, t_params = _scope_text(current_user)
     tendencia_q = await db.execute(
-        text("""
+        text(f"""
             SELECT
                 DATE(s.created_at AT TIME ZONE 'UTC') as fecha,
                 COUNT(*) as total,
@@ -93,9 +143,11 @@ async def get_dashboard_stats(
             FROM solicitudes s
             LEFT JOIN predicciones_ans p ON s.id = p.solicitud_id
             WHERE s.created_at >= NOW() - INTERVAL '7 days'
+            {t_clause}
             GROUP BY DATE(s.created_at AT TIME ZONE 'UTC')
             ORDER BY fecha ASC
-        """)
+        """),
+        t_params,
     )
     tendencia_semanal = [
         {"fecha": str(r[0]), "total": r[1], "dentro": r[2], "fuera": r[3]}
@@ -126,6 +178,12 @@ async def get_dashboard_resumen(
 ):
     """
     Endpoint operativo del dashboard ANS.
+    Respeta el rol del usuario autenticado:
+      - admin     → métricas globales de todo el sistema
+      - ejecutivo → métricas únicamente de sus solicitudes asignadas
+
+    El filtrado se realiza por user.id (UUID), nunca por nombre.
+    Las solicitudes sin asignar (ejecutivo_id IS NULL) son exclusivas del admin.
 
     Métricas HISTÓRICAS (incluyen finalizadas):
       - total, fuera_ans, dentro_ans, tendencia_semanal
@@ -137,24 +195,32 @@ async def get_dashboard_resumen(
     """
     from app.models.user import User as UserORM
 
+    scope = _scope_filters(current_user)
     activa = _filtro_no_finalizada()
 
-    # ── KPIs históricos (sin filtro de estado) ──────────────────────────────
-    total = (await db.execute(select(func.count(Solicitud.id)))).scalar() or 0
+    # ── KPIs históricos ──────────────────────────────────────────────────────
+    total = (await db.execute(
+        select(func.count(Solicitud.id)).where(*scope)
+    )).scalar() or 0
 
     fuera_ans_n = (await db.execute(
-        select(func.count(Solicitud.id)).where(Solicitud.prediccion == "Fuera de ANS")
+        select(func.count(Solicitud.id))
+        .where(Solicitud.prediccion == "Fuera de ANS", *scope)
     )).scalar() or 0
 
     dentro_ans_n = (await db.execute(
-        select(func.count(Solicitud.id)).where(Solicitud.prediccion == "Dentro de ANS")
+        select(func.count(Solicitud.id))
+        .where(Solicitud.prediccion == "Dentro de ANS", *scope)
     )).scalar() or 0
 
-    # ── KPIs operativos (solo solicitudes activas) ──────────────────────────
+    # ── KPIs operativos (activas) ────────────────────────────────────────────
+    # sin_asignar: para un ejecutivo siempre es 0 porque su scope ya filtra
+    # por ejecutivo_id != NULL (su propio ID), lo que excluye ejecutivo_id IS NULL.
     sin_asignar_n = (await db.execute(
         select(func.count(Solicitud.id)).where(
             activa,
             Solicitud.ejecutivo_id.is_(None),
+            *scope,
         )
     )).scalar() or 0
 
@@ -164,6 +230,7 @@ async def get_dashboard_resumen(
             Solicitud.probabilidad.isnot(None),
             Solicitud.probabilidad >= 0.70,
             Solicitud.probabilidad < 0.90,
+            *scope,
         )
     )).scalar() or 0
 
@@ -172,6 +239,7 @@ async def get_dashboard_resumen(
             activa,
             Solicitud.probabilidad.isnot(None),
             Solicitud.probabilidad >= 0.90,
+            *scope,
         )
     )).scalar() or 0
 
@@ -179,30 +247,42 @@ async def get_dashboard_resumen(
         select(func.avg(Solicitud.probabilidad)).where(
             activa,
             Solicitud.probabilidad.isnot(None),
+            *scope,
         )
     )).scalar() or 0.0)
 
-    # Alertas no leídas: solo alertas activas (resuelta=False) del usuario actual
-    # Como las alertas se auto-resuelven al finalizar la solicitud, este conteo
-    # es naturalmente correcto, pero filtramos resuelta=False por seguridad.
-    alertas_no_leidas_n = (await db.execute(
-        select(func.count(Alerta.id)).where(
-            or_(
-                Alerta.usuario_id == current_user.id,
-                Alerta.usuario_id == None,
-            ),
-            Alerta.leida == False,
-            Alerta.resuelta == False,
-        )
-    )).scalar() or 0
+    # ── Alertas no leídas ────────────────────────────────────────────────────
+    # Admin ve todas; ejecutivo ve las propias + broadcast (usuario_id=NULL).
+    if current_user.role == "admin":
+        alertas_no_leidas_n = (await db.execute(
+            select(func.count(Alerta.id)).where(
+                Alerta.leida == False,
+                Alerta.resuelta == False,
+            )
+        )).scalar() or 0
+    else:
+        alertas_no_leidas_n = (await db.execute(
+            select(func.count(Alerta.id)).where(
+                or_(
+                    Alerta.usuario_id == current_user.id,
+                    Alerta.usuario_id == None,
+                ),
+                Alerta.leida == False,
+                Alerta.resuelta == False,
+            )
+        )).scalar() or 0
 
-    # ── Breakdown de estados (histórico — todos los estados) ─────────────────
-    estado_q = await db.execute(text("""
-        SELECT COALESCE(es.nombre, s.estado) AS est, COUNT(*) AS n
-        FROM solicitudes s
-        LEFT JOIN estados_solicitud es ON s.estado_id = es.id
-        GROUP BY COALESCE(es.nombre, s.estado)
-    """))
+    # ── Breakdown de estados (histórico) ─────────────────────────────────────
+    # Convertido de text() a ORM para soportar el scope por rol.
+    estado_q = await db.execute(
+        select(
+            func.coalesce(EstadoSolicitud.nombre, Solicitud.estado).label("est"),
+            func.count(Solicitud.id).label("n"),
+        )
+        .outerjoin(EstadoSolicitud, Solicitud.estado_id == EstadoSolicitud.id)
+        .where(*scope)
+        .group_by(func.coalesce(EstadoSolicitud.nombre, Solicitud.estado))
+    )
     estados_raw = [(r[0] or "", r[1]) for r in estado_q]
     estados_list = [{"nombre": nombre, "count": int(count)}
                     for nombre, count in estados_raw if nombre]
@@ -215,12 +295,13 @@ async def get_dashboard_resumen(
     en_proceso_n  = _match("proceso", "progreso", "curso")
     finalizadas_n = _match("finaliz", "complet", "cerrad", "atendid")
 
-    # ── Distribución de riesgo — SOLO solicitudes activas ───────────────────
+    # ── Distribución de riesgo (activas) ────────────────────────────────────
     dist_bajo = (await db.execute(
         select(func.count(Solicitud.id)).where(
             activa,
             Solicitud.probabilidad.isnot(None),
             Solicitud.probabilidad < 0.40,
+            *scope,
         )
     )).scalar() or 0
 
@@ -230,10 +311,11 @@ async def get_dashboard_resumen(
             Solicitud.probabilidad.isnot(None),
             Solicitud.probabilidad >= 0.40,
             Solicitud.probabilidad < 0.70,
+            *scope,
         )
     )).scalar() or 0
 
-    # ── Top 10 solicitudes en riesgo — SOLO activas ──────────────────────────
+    # ── Top 10 solicitudes en riesgo (activas) ───────────────────────────────
     riesgo_rows = (await db.execute(
         select(Solicitud).options(
             selectinload(Solicitud.tipo_solicitud),
@@ -249,6 +331,7 @@ async def get_dashboard_resumen(
                 Solicitud.prediccion == "Fuera de ANS",
                 and_(Solicitud.probabilidad.isnot(None), Solicitud.probabilidad >= 0.70),
             ),
+            *scope,
         )
         .order_by(desc(Solicitud.probabilidad))
         .limit(10)
@@ -272,13 +355,15 @@ async def get_dashboard_resumen(
         for s in riesgo_rows
     ]
 
-    # ── Top 5 sin asignar — SOLO activas ────────────────────────────────────
+    # ── Top 5 sin asignar (activas) — solo admin recibe datos aquí ──────────
+    # Para ejecutivos, scope = [ejecutivo_id == user.id] es incompatible con
+    # ejecutivo_id IS NULL, por lo que la query devuelve 0 filas naturalmente.
     sin_asig_rows = (await db.execute(
         select(Solicitud).options(
             selectinload(Solicitud.tipo_solicitud),
             selectinload(Solicitud.prioridad_rel),
         )
-        .where(activa, Solicitud.ejecutivo_id.is_(None))
+        .where(activa, Solicitud.ejecutivo_id.is_(None), *scope)
         .order_by(desc(Solicitud.created_at))
         .limit(5)
     )).scalars().all()
@@ -295,7 +380,13 @@ async def get_dashboard_resumen(
         for s in sin_asig_rows
     ]
 
-    # ── Carga por ejecutivo — en_riesgo solo cuenta solicitudes activas ──────
+    # ── Carga por ejecutivo ──────────────────────────────────────────────────
+    # Admin: ve todos los ejecutivos activos con solicitudes.
+    # Ejecutivo: ve solo su propia fila.
+    carga_where = [UserORM.role == "ejecutivo", UserORM.is_active == True]
+    if current_user.role != "admin":
+        carga_where.append(UserORM.id == current_user.id)
+
     carga_q = await db.execute(
         select(
             UserORM.full_name,
@@ -307,7 +398,7 @@ async def get_dashboard_resumen(
             ).label("en_riesgo"),
         )
         .join(Solicitud, Solicitud.ejecutivo_id == UserORM.id)
-        .where(UserORM.role == "ejecutivo", UserORM.is_active == True)
+        .where(*carga_where)
         .group_by(UserORM.id, UserORM.full_name)
         .order_by(func.count(Solicitud.id).desc())
         .limit(10)
@@ -325,17 +416,22 @@ async def get_dashboard_resumen(
         if r[1] > 0
     ]
 
-    # ── Tendencia semanal (histórico — incluye todas) ────────────────────────
-    tendencia_q = await db.execute(text("""
-        SELECT
-            DATE(s.created_at AT TIME ZONE 'UTC') AS fecha,
-            COUNT(*) AS ingresadas,
-            COUNT(*) FILTER (WHERE s.prediccion = 'Fuera de ANS') AS fuera_ans
-        FROM solicitudes s
-        WHERE s.created_at >= NOW() - INTERVAL '7 days'
-        GROUP BY DATE(s.created_at AT TIME ZONE 'UTC')
-        ORDER BY fecha ASC
-    """))
+    # ── Tendencia semanal (histórica) ────────────────────────────────────────
+    t_clause, t_params = _scope_text(current_user)
+    tendencia_q = await db.execute(
+        text(f"""
+            SELECT
+                DATE(s.created_at AT TIME ZONE 'UTC') AS fecha,
+                COUNT(*) AS ingresadas,
+                COUNT(*) FILTER (WHERE s.prediccion = 'Fuera de ANS') AS fuera_ans
+            FROM solicitudes s
+            WHERE s.created_at >= NOW() - INTERVAL '7 days'
+            {t_clause}
+            GROUP BY DATE(s.created_at AT TIME ZONE 'UTC')
+            ORDER BY fecha ASC
+        """),
+        t_params,
+    )
     tendencia_semanal = [
         {"fecha": str(r[0]), "ingresadas": int(r[1]), "fuera_ans": int(r[2])}
         for r in tendencia_q
@@ -380,9 +476,10 @@ async def get_ans_cumplimiento(
 ):
     """
     Desglose de cumplimiento ANS agrupado por cliente y ramo.
-    Solo incluye solicitudes con prediccion definida (Dentro/Fuera de ANS).
-    El frontend acumula y filtra los datos client-side.
+    Respeta el rol: admin ve todo; ejecutivo solo sus solicitudes asignadas.
     """
+    scope = _scope_filters(current_user)
+
     rows = (await db.execute(
         select(
             Solicitud.cliente,
@@ -395,7 +492,10 @@ async def get_ans_cumplimiento(
             ).label("fuera"),
         )
         .outerjoin(Ramo, Solicitud.ramo_id == Ramo.id)
-        .where(Solicitud.prediccion.in_(["Dentro de ANS", "Fuera de ANS"]))
+        .where(
+            Solicitud.prediccion.in_(["Dentro de ANS", "Fuera de ANS"]),
+            *scope,
+        )
         .group_by(Solicitud.cliente, Ramo.nombre)
         .order_by(Solicitud.cliente, Ramo.nombre)
     )).all()

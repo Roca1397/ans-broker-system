@@ -10,6 +10,7 @@ import { forkJoin, Subject, takeUntil } from 'rxjs';
 import { DashboardDataService } from './dashboard.service';
 import { DashboardResumen, AnsBreakdownItem } from './dashboard.models';
 import { Alerta } from '../models/models';
+import { AuthService } from '../services/auth.service';
 import { KpiData, KpiCardComponent }        from './components/kpi-card.component';
 import { RiskPanelComponent }               from './components/risk-panel.component';
 import { StatusCardComponent }              from './components/status-card.component';
@@ -99,6 +100,7 @@ import { UnassignedComponent }              from './components/unassigned.compon
       <app-status-card [estados]="data.estados"></app-status-card>
 
       <app-unassigned
+        *ngIf="auth.isAdmin()"
         [lista]="data.sin_asignar_lista"
         [total]="data.sin_asignar">
       </app-unassigned>
@@ -127,6 +129,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private dashService: DashboardDataService,
     private cdr: ChangeDetectorRef,
+    public auth: AuthService,
   ) {}
 
   ngOnInit() { this.load(); }
