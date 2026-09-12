@@ -887,7 +887,7 @@ async def eliminar_solicitud(
 async def crear_solicitud_manual(
     data: SolicitudCreateManual,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     nro_ticket = await generar_nro_ticket(db)
     estado_id = data.estado_id or await resolver_estado_pendiente_id(db)
@@ -940,6 +940,7 @@ async def crear_solicitud_manual(
         probabilidad=pred.get("probabilidad"),
         prediccion=pred.get("prediccion"),
 
+        ejecutivo_id=current_user.id if current_user.role == "ejecutivo" else None,
         estado="Pendiente",
         fuente="manual",
         nro_atenciones=data.nro_atenciones or 1,
