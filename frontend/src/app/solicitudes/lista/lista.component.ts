@@ -100,6 +100,13 @@ const COL_MINS: Record<string, number> = {
               </select>
             </div>
             <div class="fp-field">
+              <label>Tipo</label>
+              <select [(ngModel)]="filterTipoSolicitud" (change)="applyFilters()">
+                <option value="">Todos</option>
+                <option *ngFor="let t of tiposSolicitud" [value]="t.id">{{ t.nombre }}</option>
+              </select>
+            </div>
+            <div class="fp-field">
               <label>Prioridad</label>
               <select [(ngModel)]="filterPrioridad" (change)="applyFilters()">
                 <option value="">Todas</option>
@@ -410,17 +417,19 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   page                 = signal(1);
   pages                = signal(1);
 
-  aseguradoras: Aseguradora[]  = [];
-  estados:      CatalogoItem[] = [];
-  prioridades:  CatalogoItem[] = [];
-  ramos:        CatalogoItem[] = [];
+  aseguradoras:    Aseguradora[]  = [];
+  estados:         CatalogoItem[] = [];
+  tiposSolicitud:  CatalogoItem[] = [];
+  prioridades:     CatalogoItem[] = [];
+  ramos:           CatalogoItem[] = [];
 
-  searchTerm        = '';
-  filterEstado      = '';
-  filterPrioridad   = '';
-  filterAseguradora = '';
-  filterRamo        = '';
-  filterPrediccion  = '';
+  searchTerm            = '';
+  filterEstado          = '';
+  filterTipoSolicitud   = '';
+  filterPrioridad       = '';
+  filterAseguradora     = '';
+  filterRamo            = '';
+  filterPrediccion      = '';
   orderBy           = 'created_at';
   showFilters       = false;
   showColumnPicker  = false;
@@ -476,6 +485,7 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.catalogos.getAseguradoras().subscribe(d => this.aseguradoras = d);
     this.catalogos.getEstadosSolicitud().subscribe(d => this.estados = d);
+    this.catalogos.getTiposSolicitud().subscribe(d => this.tiposSolicitud = d);
     this.catalogos.getPrioridades().subscribe(d => this.prioridades = d);
     this.catalogos.getRamos().subscribe(d => this.ramos = d);
     this.load();
@@ -487,11 +497,12 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
     this.service.listarSharepoint({
       page: this.page(),
       size: 20,
-      estado_id:      this.filterEstado      || null,
-      prioridad_id:   this.filterPrioridad   || null,
-      aseguradora_id: this.filterAseguradora || null,
-      ramo_id:        this.filterRamo        || null,
-      prediccion:     this.filterPrediccion  || null,
+      estado_id:          this.filterEstado          || null,
+      tipo_solicitud_id:  this.filterTipoSolicitud   || null,
+      prioridad_id:       this.filterPrioridad        || null,
+      aseguradora_id:     this.filterAseguradora      || null,
+      ramo_id:            this.filterRamo             || null,
+      prediccion:         this.filterPrediccion       || null,
       search:         this.searchTerm        || null,
       order_by:       this.orderBy,
       order_dir:      'desc',
@@ -520,14 +531,15 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   applyFilters() { this.page.set(1); this.load(); }
 
   activeFilterCount() {
-    return [this.filterEstado, this.filterPrioridad, this.filterAseguradora,
-            this.filterRamo, this.filterPrediccion].filter(Boolean).length;
+    return [this.filterEstado, this.filterTipoSolicitud, this.filterPrioridad,
+            this.filterAseguradora, this.filterRamo, this.filterPrediccion].filter(Boolean).length;
   }
 
   clearFilters() {
-    this.filterEstado = ''; this.filterPrioridad = '';
-    this.filterAseguradora = ''; this.filterRamo = '';
-    this.filterPrediccion = ''; this.orderBy = 'created_at';
+    this.filterEstado = ''; this.filterTipoSolicitud = '';
+    this.filterPrioridad = ''; this.filterAseguradora = '';
+    this.filterRamo = ''; this.filterPrediccion = '';
+    this.orderBy = 'created_at';
     this.page.set(1); this.load();
   }
 
