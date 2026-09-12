@@ -39,7 +39,7 @@ from app.core.security import get_current_user, get_current_admin
 from app.core.api_key import verify_api_key
 from app.core.config import settings
 from app.models.solicitud import (
-    Solicitud, Aseguradora,
+    Solicitud, Aseguradora, Cliente,
     TipoSolicitud, EstadoSolicitud, Prioridad, Ramo, Alerta,
 )
 from app.models.user import User
@@ -895,7 +895,17 @@ async def crear_solicitud_manual(
     cliente = data.cliente
     aseg_id = data.aseguradora_id
     ramo_id_v = data.ramo_id
-    if data.remitente and not cliente:
+    prioridad_id = data.prioridad_id
+
+    if data.cliente_id:
+        cliente_obj = (await db.execute(
+            select(Cliente).where(Cliente.id == data.cliente_id, Cliente.activo == True)
+        )).scalar_one_or_none()
+        if cliente_obj:
+            cliente = cliente_obj.nombre
+            if cliente_obj.prioridad_id:
+                prioridad_id = cliente_obj.prioridad_id
+    elif data.remitente and not cliente:
         cli, aseg_auto, ramo_auto = await resolver_cliente_por_remitente(db, data.remitente)
         cliente = cli
         aseg_id = aseg_id or aseg_auto
@@ -905,7 +915,7 @@ async def crear_solicitud_manual(
         pred = await _predecir_con_rf(
             db,
             tipo_solicitud_id=data.tipo_solicitud_id,
-            prioridad_id=data.prioridad_id,
+            prioridad_id=prioridad_id,
             aseguradora_id=aseg_id,
             ramo_id=ramo_id_v,
             nro_atenciones=data.nro_atenciones or 1,
@@ -921,7 +931,7 @@ async def crear_solicitud_manual(
         tipo_solicitud_id=data.tipo_solicitud_id,
         estado_id=estado_id,
         aseguradora_id=aseg_id,
-        prioridad_id=data.prioridad_id,
+        prioridad_id=prioridad_id,
         ramo_id=ramo_id_v,
         asunto=data.asunto,
         cuerpo_correo=data.cuerpo_correo,

@@ -15,6 +15,7 @@ REEMPLAZA: backend/app/routers/catalogos.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import List
 
 from app.core.database import get_db
@@ -71,6 +72,21 @@ async def get_ramos(db: AsyncSession = Depends(get_db), _=Depends(get_current_us
 @router.get("/clientes", response_model=List[ClienteOut])
 async def get_clientes(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     result = await db.execute(
-        select(Cliente).where(Cliente.activo == True).order_by(Cliente.nombre)
+        select(Cliente)
+        .options(selectinload(Cliente.prioridad_rel))
+        .where(Cliente.activo == True)
+        .order_by(Cliente.nombre)
     )
-    return result.scalars().all()
+    clientes = result.scalars().all()
+    return [
+        {
+            "id": c.id,
+            "nombre": c.nombre,
+            "contacto": c.contacto,
+            "direccion": c.direccion,
+            "activo": c.activo,
+            "prioridad_id": c.prioridad_id,
+            "prioridad_nombre": c.prioridad_rel.nombre if c.prioridad_rel else None,
+        }
+        for c in clientes
+    ]

@@ -259,6 +259,7 @@ class SolicitudUpdate(BaseModel):
 
 class SolicitudCreateManual(BaseModel):
     cliente: Optional[str] = None
+    cliente_id: Optional[int] = None
     remitente: Optional[EmailStr] = None
     tipo_solicitud_id: Optional[int] = None
     estado_id: Optional[int] = None

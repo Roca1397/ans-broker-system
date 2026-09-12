@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { SolicitudesService, CatalogosService } from '../../services/api.service';
-import { Aseguradora, CatalogoItem } from '../../models/models';
+import { Aseguradora, CatalogoItem, Cliente } from '../../models/models';
 
 @Component({
   selector: 'app-nueva-solicitud',
@@ -31,10 +31,20 @@ import { Aseguradora, CatalogoItem } from '../../models/models';
           <div class="field">
             <label>Remitente</label>
             <input type="email" formControlName="remitente" placeholder="correo@empresa.com" />
+            <span *ngIf="remitenteCtrl && remitenteCtrl.dirty && remitenteCtrl.invalid" class="field-error">
+              Ingrese un correo electrónico válido.
+            </span>
           </div>
           <div class="field">
             <label>Cliente</label>
-            <input type="text" formControlName="cliente" placeholder="Nombre del cliente" />
+            <select formControlName="cliente_id" (change)="onClienteChange()">
+              <option [ngValue]="null">— Sin cliente —</option>
+              <option *ngFor="let c of clientes" [ngValue]="c.id">{{ c.nombre }}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Prioridad</label>
+            <input type="text" [value]="selectedCliente?.prioridad_nombre || '—'" readonly class="field-readonly" />
           </div>
           <div class="field">
             <label>Aseguradora</label>
@@ -51,13 +61,6 @@ import { Aseguradora, CatalogoItem } from '../../models/models';
             </select>
           </div>
           <div class="field">
-            <label>Prioridad</label>
-            <select formControlName="prioridad_id">
-              <option [ngValue]="null">— Sin prioridad —</option>
-              <option *ngFor="let p of prioridades" [ngValue]="p.id">{{ p.nombre }}</option>
-            </select>
-          </div>
-          <div class="field">
             <label>Ramo</label>
             <select formControlName="ramo_id">
               <option [ngValue]="null">— Sin ramo —</option>
@@ -71,6 +74,11 @@ import { Aseguradora, CatalogoItem } from '../../models/models';
           <div class="field">
             <label>Número de atenciones</label>
             <input type="number" formControlName="nro_atenciones" min="1" step="1" placeholder="1" />
+          </div>
+          <div class="field">
+            <label>Adjunto</label>
+            <input type="file" (change)="onFileChange($event)" class="file-input" />
+            <span *ngIf="selectedFile" class="file-name">{{ selectedFile.name }}</span>
           </div>
         </div>
 
@@ -104,6 +112,10 @@ import { Aseguradora, CatalogoItem } from '../../models/models';
     .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; background: var(--bg-card); color: var(--text-primary); box-sizing: border-box; }
     textarea { resize: vertical; min-height: 80px; }
     .req { color: var(--danger); }
+    .field-readonly { background: var(--bg-sidebar, #f5f5f5) !important; cursor: default; color: var(--text-muted) !important; }
+    .field-error { display: block; font-size: 0.75rem; color: var(--danger); margin-top: 4px; }
+    .file-input { cursor: pointer; }
+    .file-name { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .form-actions { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
     .alert-danger { padding: 10px 12px; border-radius: var(--radius); background: rgba(255,76,76,0.08); color: var(--danger); font-size: 0.85rem; border: 1px solid rgba(255,76,76,0.3); margin-bottom: 16px; }
     .alert-success { padding: 10px 12px; border-radius: var(--radius); background: rgba(16,185,129,0.08); color: var(--success); font-size: 0.85rem; border: 1px solid rgba(16,185,129,0.3); margin-bottom: 16px; }
@@ -115,8 +127,10 @@ export class NuevaSolicitudComponent implements OnInit {
   form: FormGroup;
   aseguradoras: Aseguradora[] = [];
   tiposSolicitud: CatalogoItem[] = [];
-  prioridades: CatalogoItem[] = [];
+  clientes: Cliente[] = [];
   ramos: CatalogoItem[] = [];
+  selectedCliente: Cliente | null = null;
+  selectedFile: File | null = null;
   loading = false;
   error = '';
   success = false;
@@ -130,11 +144,10 @@ export class NuevaSolicitudComponent implements OnInit {
     const nowStr = new Date().toISOString().slice(0, 16);
     this.form = this.fb.group({
       asunto: [''],
-      remitente: [null],
-      cliente: [null],
+      remitente: [null, [Validators.pattern(/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/)]],
+      cliente_id: [null],
       aseguradora_id: [null],
       tipo_solicitud_id: [null],
-      prioridad_id: [null],
       ramo_id: [null],
       fecha_recepcion: [nowStr],
       cuerpo_correo: [null],
@@ -146,13 +159,29 @@ export class NuevaSolicitudComponent implements OnInit {
   ngOnInit(): void {
     this.catalogosService.getAseguradoras().subscribe(d => this.aseguradoras = d);
     this.catalogosService.getTiposSolicitud().subscribe(d => this.tiposSolicitud = d);
-    this.catalogosService.getPrioridades().subscribe(d => this.prioridades = d);
+    this.catalogosService.getClientes().subscribe(d => this.clientes = d);
     this.catalogosService.getRamos().subscribe(d => this.ramos = d);
+  }
+
+  get remitenteCtrl() { return this.form.get('remitente'); }
+
+  onClienteChange(): void {
+    const id = this.form.value.cliente_id;
+    this.selectedCliente = id ? (this.clientes.find(c => c.id === id) ?? null) : null;
+  }
+
+  onFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile = input.files?.[0] ?? null;
   }
 
   onSubmit(): void {
     const asunto = this.form.value.asunto?.trim();
     if (!asunto) return;
+    if (this.remitenteCtrl?.dirty && this.remitenteCtrl?.invalid) {
+      this.remitenteCtrl.markAsTouched();
+      return;
+    }
     this.loading = true;
     this.error = '';
 
@@ -160,10 +189,9 @@ export class NuevaSolicitudComponent implements OnInit {
     const payload: any = {
       asunto,
       remitente: v.remitente || null,
-      cliente: v.cliente || null,
+      cliente_id: v.cliente_id || null,
       aseguradora_id: v.aseguradora_id || null,
       tipo_solicitud_id: v.tipo_solicitud_id || null,
-      prioridad_id: v.prioridad_id || null,
       ramo_id: v.ramo_id || null,
       cuerpo_correo: v.cuerpo_correo || null,
       comentarios: v.comentarios || null,
@@ -172,15 +200,26 @@ export class NuevaSolicitudComponent implements OnInit {
     };
 
     this.solicitudesService.crearManual(payload).subscribe({
-      next: () => {
-        this.success = true;
-        this.loading = false;
-        setTimeout(() => this.router.navigate(['/solicitudes']), 1500);
+      next: (res) => {
+        if (this.selectedFile) {
+          this.solicitudesService.subirAdjuntos(res.id, [this.selectedFile]).subscribe({
+            next: () => this._afterSave(),
+            error: () => this._afterSave(),
+          });
+        } else {
+          this._afterSave();
+        }
       },
       error: (err) => {
         this.error = err.error?.detail || 'Error al guardar';
         this.loading = false;
       },
     });
+  }
+
+  private _afterSave(): void {
+    this.success = true;
+    this.loading = false;
+    setTimeout(() => this.router.navigate(['/solicitudes']), 1500);
   }
 }
