@@ -11,22 +11,17 @@ import { AuthService } from '../../services/auth.service';
   template: `
     <div class="login-shell">
 
-      <!-- Left brand panel -->
-      <div class="brand-panel">
+            <div class="brand-panel">
         <div class="brand-glow"></div>
         <div class="brand-grid"></div>
-
         <div class="brand-content">
-          <!-- Logo -->
-          <div class="brand-logo">
+                    <div class="brand-logo">
             <img src="assets/images/logo.png" alt="SLAGuardian" class="shield-svg" />
             <div class="brand-name">
               <span class="brand-title"><span class="cyan">SLA</span>Guardian</span>
               <span class="brand-sub">ANS Broker System</span>
             </div>
-          </div>
-
-          <!-- Feature highlights -->
+          </div>       
           <div class="brand-features">
             <div class="feature-item">
               <div class="feature-icon">
@@ -85,7 +80,7 @@ import { AuthService } from '../../services/auth.service';
 
           <form [formGroup]="form" (ngSubmit)="onSubmit()">
             <div class="form-group">
-              <label for="email">Correo Electrónico</label>
+              <label for="email">Usuario</label>
               <div class="input-icon-wrap">
                 <svg class="input-icon" viewBox="0 0 20 20" fill="none" width="16" height="16">
                   <rect x="2" y="5" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/>
