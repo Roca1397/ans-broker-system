@@ -29,9 +29,9 @@ import { Aseguradora, CatalogoItem, Cliente } from '../../models/models';
             <input type="text" formControlName="asunto" placeholder="Asunto del correo o descripción breve" />
           </div>
           <div class="field">
-            <label>Remitente</label>
+            <label>Remitente <span class="req">*</span></label>
             <input type="email" formControlName="remitente" placeholder="correo@empresa.com" />
-            <span *ngIf="remitenteCtrl && remitenteCtrl.dirty && remitenteCtrl.invalid" class="field-error">
+            <span *ngIf="remitenteCtrl && (remitenteCtrl.dirty || remitenteCtrl.touched) && remitenteCtrl.invalid" class="field-error">
               Ingrese un correo electrónico válido.
             </span>
           </div>
@@ -144,7 +144,7 @@ export class NuevaSolicitudComponent implements OnInit {
     const nowStr = new Date().toISOString().slice(0, 16);
     this.form = this.fb.group({
       asunto: [''],
-      remitente: [null, [Validators.pattern(/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/)]],
+      remitente: [null, [Validators.required, Validators.pattern(/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/)]],
       cliente_id: [null],
       aseguradora_id: [null],
       tipo_solicitud_id: [null],
@@ -178,7 +178,7 @@ export class NuevaSolicitudComponent implements OnInit {
   onSubmit(): void {
     const asunto = this.form.value.asunto?.trim();
     if (!asunto) return;
-    if (this.remitenteCtrl?.dirty && this.remitenteCtrl?.invalid) {
+    if (this.remitenteCtrl?.invalid) {
       this.remitenteCtrl.markAsTouched();
       return;
     }
