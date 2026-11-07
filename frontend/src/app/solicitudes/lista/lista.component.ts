@@ -57,7 +57,7 @@ const COL_MINS: Record<string, number> = {
     <div class="page-header">
       <div>
         <h1>Solicitudes</h1>
-        <p class="muted">{{ total() }} registros · ordenados por riesgo</p>
+        <p class="muted">{{ total() }} registros · {{ orderByLabel }}</p>
       </div>
       <div class="header-actions">
         <a routerLink="/solicitudes/nueva" class="btn btn-primary">+ Nueva Solicitud</a>
@@ -431,6 +431,17 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   filterRamo            = '';
   filterPrediccion      = '';
   orderBy           = 'created_at';
+
+  get orderByLabel(): string {
+    const labels: Record<string, string> = {
+      created_at:   'ordenados por más recientes',
+      probabilidad: 'ordenados por mayor riesgo',
+      prioridad:    'ordenados por prioridad',
+      estado:       'ordenados por estado',
+    };
+    return labels[this.orderBy] ?? 'ordenados';
+  }
+
   showFilters       = false;
   showColumnPicker  = false;
   readonly allColumns = ALL_COLUMNS;
