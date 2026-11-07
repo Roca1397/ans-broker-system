@@ -436,6 +436,8 @@ async def listar_solicitudes_sharepoint(
     tipo_solicitud_id: Optional[int] = None,
     prediccion: Optional[str] = None,
     search: Optional[str] = None,
+    fecha_desde: Optional[str] = None,
+    fecha_hasta: Optional[str] = None,
     order_by: str = Query("created_at"),
     order_dir: str = Query("desc", regex="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
@@ -466,6 +468,12 @@ async def listar_solicitudes_sharepoint(
         query = query.where(Solicitud.tipo_solicitud_id == tipo_solicitud_id)
     if prediccion:
         query = query.where(Solicitud.prediccion == prediccion)
+    if fecha_desde:
+        from datetime import datetime
+        query = query.where(Solicitud.fecha_recepcion >= datetime.fromisoformat(fecha_desde))
+    if fecha_hasta:
+        from datetime import datetime, timedelta
+        query = query.where(Solicitud.fecha_recepcion < datetime.fromisoformat(fecha_hasta) + timedelta(days=1))
     if search:
         like = f"%{search}%"
         query = query.where(or_(

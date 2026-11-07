@@ -76,6 +76,14 @@ const COL_MINS: Record<string, number> = {
                placeholder="Buscar por ticket, cliente, remitente o asunto..." />
       </div>
 
+      <!-- Rango de fechas -->
+      <div class="date-range">
+        <input type="date" class="date-input" [(ngModel)]="fechaDesde" (change)="applyFilters()" title="Desde" />
+        <span class="date-sep">–</span>
+        <input type="date" class="date-input" [(ngModel)]="fechaHasta" (change)="applyFilters()" title="Hasta" />
+        <button *ngIf="fechaDesde || fechaHasta" class="date-clear" (click)="clearDates()" title="Limpiar fechas">✕</button>
+      </div>
+
       <div class="filter-btn-wrap">
         <button class="btn-filter" (click)="showFilters = !showFilters"
                 [class.btn-filter-on]="activeFilterCount() > 0">
@@ -304,6 +312,14 @@ const COL_MINS: Record<string, number> = {
     }
     .search-box input:focus { outline: none; border-color: var(--primary); }
 
+    /* ── Date range ──────────────────────────────────────────── */
+    .date-range { display: flex; align-items: center; gap: 6px; }
+    .date-input { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.82rem; background: var(--bg-card); color: var(--text-primary); cursor: pointer; }
+    .date-input:focus { outline: none; border-color: var(--primary); }
+    .date-sep { color: var(--text-muted); font-size: 0.85rem; }
+    .date-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.9rem; padding: 4px 6px; border-radius: var(--radius); line-height: 1; }
+    .date-clear:hover { color: var(--danger); background: rgba(255,76,76,0.08); }
+
     .filter-btn-wrap { position: relative; z-index: 100; }
     .btn-filter {
       display: flex; align-items: center; gap: 6px;
@@ -431,6 +447,8 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   filterRamo            = '';
   filterPrediccion      = '';
   orderBy           = 'created_at';
+  fechaDesde        = '';
+  fechaHasta        = '';
 
   get hasActiveSearch(): boolean {
     return !!(this.searchTerm || this.filterEstado || this.filterTipoSolicitud ||
@@ -520,6 +538,8 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
       ramo_id:            this.filterRamo             || null,
       prediccion:         this.filterPrediccion       || null,
       search:         this.searchTerm        || null,
+      fecha_desde:    this.fechaDesde        || null,
+      fecha_hasta:    this.fechaHasta        || null,
       order_by:       this.orderBy,
       order_dir:      'desc',
     }).subscribe({
@@ -548,16 +568,20 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
 
   activeFilterCount() {
     return [this.filterEstado, this.filterTipoSolicitud, this.filterPrioridad,
-            this.filterAseguradora, this.filterRamo, this.filterPrediccion].filter(Boolean).length;
+            this.filterAseguradora, this.filterRamo, this.filterPrediccion,
+            this.fechaDesde, this.fechaHasta].filter(Boolean).length;
   }
 
   clearFilters() {
     this.filterEstado = ''; this.filterTipoSolicitud = '';
     this.filterPrioridad = ''; this.filterAseguradora = '';
     this.filterRamo = ''; this.filterPrediccion = '';
+    this.fechaDesde = ''; this.fechaHasta = '';
     this.orderBy = 'created_at';
     this.page.set(1); this.load();
   }
+
+  clearDates() { this.fechaDesde = ''; this.fechaHasta = ''; this.page.set(1); this.load(); }
 
   goPage(p: number) { if (p >= 1 && p <= this.pages()) { this.page.set(p); this.load(); } }
 
