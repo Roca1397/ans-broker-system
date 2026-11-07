@@ -78,9 +78,15 @@ const COL_MINS: Record<string, number> = {
 
       <!-- Rango de fechas -->
       <div class="date-range">
-        <input type="date" class="date-input" [(ngModel)]="fechaDesde" (change)="applyFilters()" title="Desde" />
+        <div class="date-field">
+          <label class="date-label">Desde</label>
+          <input type="date" class="date-input" [(ngModel)]="fechaDesde" (change)="applyFilters()" />
+        </div>
         <span class="date-sep">–</span>
-        <input type="date" class="date-input" [(ngModel)]="fechaHasta" (change)="applyFilters()" title="Hasta" />
+        <div class="date-field">
+          <label class="date-label">Hasta</label>
+          <input type="date" class="date-input" [(ngModel)]="fechaHasta" (change)="applyFilters()" />
+        </div>
         <button *ngIf="fechaDesde || fechaHasta" class="date-clear" (click)="clearDates()" title="Limpiar fechas">✕</button>
       </div>
 
@@ -313,11 +319,13 @@ const COL_MINS: Record<string, number> = {
     .search-box input:focus { outline: none; border-color: var(--primary); }
 
     /* ── Date range ──────────────────────────────────────────── */
-    .date-range { display: flex; align-items: center; gap: 6px; }
+    .date-range { display: flex; align-items: flex-end; gap: 6px; }
+    .date-field { display: flex; flex-direction: column; gap: 2px; }
+    .date-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; padding-left: 2px; }
     .date-input { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.82rem; background: var(--bg-card); color: var(--text-primary); cursor: pointer; }
     .date-input:focus { outline: none; border-color: var(--primary); }
-    .date-sep { color: var(--text-muted); font-size: 0.85rem; }
-    .date-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.9rem; padding: 4px 6px; border-radius: var(--radius); line-height: 1; }
+    .date-sep { color: var(--text-muted); font-size: 0.85rem; padding-bottom: 9px; }
+    .date-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.9rem; padding: 4px 6px; border-radius: var(--radius); line-height: 1; align-self: flex-end; margin-bottom: 2px; }
     .date-clear:hover { color: var(--danger); background: rgba(255,76,76,0.08); }
 
     .filter-btn-wrap { position: relative; z-index: 100; }
