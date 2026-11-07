@@ -167,7 +167,15 @@ export class ClientesRemitentesComponent implements OnInit {
 
     obs.subscribe({
       next: () => { this.saving.set(false); this.cancel(); this.load(); },
-      error: (err) => { this.saving.set(false); this.error.set(err.error?.detail || 'Error al guardar'); },
+      error: (err) => {
+        this.saving.set(false);
+        const detail = err.error?.detail;
+        if (Array.isArray(detail)) {
+          this.error.set(detail.map((e: any) => e.msg || JSON.stringify(e)).join(', '));
+        } else {
+          this.error.set(typeof detail === 'string' ? detail : 'Error al guardar');
+        }
+      },
     });
   }
 
