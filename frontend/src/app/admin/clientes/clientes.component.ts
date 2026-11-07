@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, CatalogosService } from '../../services/api.service';
@@ -49,6 +49,10 @@ import { Cliente, CatalogoItem } from '../../models/models';
     </div>
 
     <div class="card table-card">
+      <div class="table-header">
+        <span>Clientes registrados</span>
+        <input type="text" class="filter-input" placeholder="Filtrar..." [ngModel]="filterText()" (ngModelChange)="filterText.set($event)" />
+      </div>
       <div *ngIf="loading()" class="loading-state"><div class="spinner"></div></div>
       <table *ngIf="!loading()">
         <thead>
@@ -62,7 +66,7 @@ import { Cliente, CatalogoItem } from '../../models/models';
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of items()">
+          <tr *ngFor="let item of filteredItems()">
             <td><small class="muted">#{{ item.id }}</small></td>
             <td><strong>{{ item.nombre }}</strong></td>
             <td>{{ item.contacto || '—' }}</td>
@@ -73,7 +77,7 @@ import { Cliente, CatalogoItem } from '../../models/models';
               <button class="btn btn-sm btn-danger" (click)="remove(item)">Eliminar</button>
             </td>
           </tr>
-          <tr *ngIf="items().length === 0">
+          <tr *ngIf="filteredItems().length === 0">
             <td colspan="6"><div class="empty-state"><p>No hay clientes registrados.</p></div></td>
           </tr>
         </tbody>
@@ -95,6 +99,10 @@ import { Cliente, CatalogoItem } from '../../models/models';
     .form-actions { margin-top: 14px; display: flex; gap: 8px; }
     .alert-error { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: rgba(255,76,76,0.08); color: var(--danger); font-size: 0.85rem; border: 1px solid rgba(255,76,76,0.3); }
     .table-card { padding: 0; overflow: hidden; }
+    .table-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .table-header span { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .filter-input { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.82rem; background: var(--bg-surface); color: var(--text-primary); width: 200px; }
+    .filter-input:focus { outline: none; border-color: var(--primary); }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     thead th { text-align: left; padding: 10px 14px; background: var(--bg-surface); border-bottom: 2px solid var(--border); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; }
     tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
@@ -111,6 +119,14 @@ import { Cliente, CatalogoItem } from '../../models/models';
 })
 export class AdminClientesComponent implements OnInit {
   items = signal<Cliente[]>([]);
+  filterText = signal('');
+  filteredItems = computed(() => {
+    const q = this.filterText().toLowerCase();
+    if (!q) return this.items();
+    return this.items().filter(i =>
+      i.nombre?.toLowerCase().includes(q) || i.contacto?.toLowerCase().includes(q)
+    );
+  });
   prioridades: CatalogoItem[] = [];
   loading = signal(true);
   saving = signal(false);
