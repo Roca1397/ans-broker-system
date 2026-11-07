@@ -16,7 +16,7 @@ import { SolicitudRiesgo } from '../dashboard.models';
           Solicitudes en Riesgo
         </span>
         <span class="card-badge" *ngIf="requests.length > 0">
-          {{ requests.length }} registros
+          {{ requests.length }} {{ requests.length === 1 ? 'registro' : 'registros' }}
         </span>
       </div>
 
