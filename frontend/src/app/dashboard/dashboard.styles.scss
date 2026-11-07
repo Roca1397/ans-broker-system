@@ -125,6 +125,14 @@
         font-size: .82rem;
         font-weight: 600;
         color: var(--text-secondary);
+
+        .card-subtitle {
+          font-size: .7rem;
+          font-weight: 400;
+          color: var(--text-muted);
+          text-transform: none;
+          letter-spacing: 0;
+        }
       }
 
       .card-badge {

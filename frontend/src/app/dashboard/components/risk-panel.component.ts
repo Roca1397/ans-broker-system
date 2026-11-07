@@ -16,6 +16,7 @@ interface Band { label: string; count: number; color: string; pct: number; }
         <span class="card-title">
           <app-icon name="shield" [size]="14"></app-icon>
           Distribución por Riesgo
+          <small class="card-subtitle">solicitudes pendientes</small>
         </span>
       </div>
 
