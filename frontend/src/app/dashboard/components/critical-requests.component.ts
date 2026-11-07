@@ -32,7 +32,7 @@ import { SolicitudRiesgo } from '../dashboard.models';
                 <th>Aseguradora</th>
                 <th>Probabilidad</th>
                 <th>Estado</th>
-                <th>Recepcion</th>
+                <th>Recepción</th>
               </tr>
             </thead>
             <tbody>
