@@ -76,7 +76,7 @@ export class RiskPanelComponent {
       { label: 'Bajo (0–39%)',    count: this.dist.bajo,    color: '#22c55e', pct: (this.dist.bajo    / t) * 100 },
       { label: 'Medio (40–69%)', count: this.dist.medio,   color: '#f59e0b', pct: (this.dist.medio   / t) * 100 },
       { label: 'Alto (70–89%)',  count: this.dist.alto,    color: '#ef4444', pct: (this.dist.alto    / t) * 100 },
-      { label: 'Critico (90%+)', count: this.dist.critico, color: '#7c3aed', pct: (this.dist.critico / t) * 100 },
+      { label: 'Crítico (90%+)', count: this.dist.critico, color: '#7c3aed', pct: (this.dist.critico / t) * 100 },
     ];
   }
 
