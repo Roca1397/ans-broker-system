@@ -331,12 +331,7 @@ export class PrediccionesComponent implements OnInit {
     if (!id) return;
     this._pendingOpenId = null;
 
-    const found = this.items.find(s => s.id === id);
-    if (found) {
-      this.selectedSolicitudId = found.id;
-    } else {
-      this.notFoundMsg = 'La solicitud de la alerta no tiene predicción registrada aún. Puede buscarla en el módulo Solicitudes.';
-    }
+    this.selectedSolicitudId = id;
     // Limpiar query param de la URL sin recargar el componente
     this.router.navigate([], {
       relativeTo: this.route,
