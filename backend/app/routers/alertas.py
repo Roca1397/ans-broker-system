@@ -56,12 +56,7 @@ async def get_alertas(
     ]
 
     if current_user.role != "admin":
-        base_filter.append(
-            or_(
-                Alerta.usuario_id == current_user.id,
-                Alerta.usuario_id == None,
-            )
-        )
+        base_filter.append(Alerta.usuario_id == current_user.id)
 
     query = (
         select(Alerta)
@@ -94,12 +89,7 @@ async def count_alertas_no_leidas(
         Alerta.tipo.in_(list(_TIPOS_RIESGO)),
     ]
     if current_user.role != "admin":
-        count_filter.append(
-            or_(
-                Alerta.usuario_id == current_user.id,
-                Alerta.usuario_id == None,
-            )
-        )
+        count_filter.append(Alerta.usuario_id == current_user.id)
 
     q = (
         select(func.count())
