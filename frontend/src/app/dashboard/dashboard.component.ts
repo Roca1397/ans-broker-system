@@ -19,6 +19,7 @@ import { WorkloadComponent }                from './components/workload.componen
 import { AlertsComponent }                  from './components/alerts.component';
 import { AnsCumplimientoComponent }         from './components/ans-cumplimiento.component';
 import { UnassignedComponent }              from './components/unassigned.component';
+import { SolicitudDetallePanelComponent }   from '../shared/solicitud-detalle-panel/solicitud-detalle-panel.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -30,7 +31,7 @@ import { UnassignedComponent }              from './components/unassigned.compon
     CommonModule, RouterLink,
     KpiCardComponent, RiskPanelComponent, StatusCardComponent,
     CriticalRequestsComponent, WorkloadComponent, AlertsComponent,
-    AnsCumplimientoComponent, UnassignedComponent,
+    AnsCumplimientoComponent, UnassignedComponent, SolicitudDetallePanelComponent,
   ],
   template: `
 <div class="sla-dashboard">
@@ -82,7 +83,8 @@ import { UnassignedComponent }              from './components/unassigned.compon
     <div class="main-row">
       <app-critical-requests
         class="main-col-wide"
-        [requests]="data.solicitudes_riesgo">
+        [requests]="data.solicitudes_riesgo"
+        (ticketClick)="openPanel($event)">
       </app-critical-requests>
       <app-workload
         class="main-col-narrow"
@@ -114,6 +116,13 @@ import { UnassignedComponent }              from './components/unassigned.compon
 
   </ng-container>
 
+  <!-- Panel de detalle (abierto al hacer click en un ticket) -->
+  <app-solicitud-detalle-panel
+    [solicitudId]="panelSolicitudId"
+    (closed)="closePanel()"
+    (saved)="onPanelSaved()">
+  </app-solicitud-detalle-panel>
+
 </div>
   `,
 })
@@ -123,6 +132,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ansBreakdown: AnsBreakdownItem[] = [];
   loading = false;
   error = false;
+  panelSolicitudId: string | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -140,6 +150,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   refresh() { this.load(); }
+
+  openPanel(id: string) { this.panelSolicitudId = id; this.cdr.markForCheck(); }
+  closePanel() { this.panelSolicitudId = null; this.cdr.markForCheck(); }
+  onPanelSaved() { this.panelSolicitudId = null; this.load(); }
 
   get kpis(): KpiData[] {
     if (!this.data) return [];

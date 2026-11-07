@@ -1,13 +1,12 @@
-import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { IconComponent } from '../icon.component';
 import { SolicitudRiesgo } from '../dashboard.models';
 
 @Component({
   selector: 'app-critical-requests',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent],
+  imports: [CommonModule, IconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="dash-card">
@@ -39,7 +38,7 @@ import { SolicitudRiesgo } from '../dashboard.models';
             <tbody>
               <tr *ngFor="let r of requests">
                 <td>
-                  <a class="ticket-link" [routerLink]="['/solicitudes', r.id]">
+                  <a class="ticket-link" (click)="ticketClick.emit(r.id); $event.preventDefault()">
                     {{ r.nro_ticket || '—' }}
                   </a>
                 </td>
@@ -68,6 +67,7 @@ import { SolicitudRiesgo } from '../dashboard.models';
 })
 export class CriticalRequestsComponent {
   @Input() requests: SolicitudRiesgo[] = [];
+  @Output() ticketClick = new EventEmitter<string>();
 
   probClass(p: number | undefined): string {
     if (p == null) return '';
