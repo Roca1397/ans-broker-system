@@ -119,7 +119,7 @@ type Filtro = 'todas' | 'dentro' | 'fuera' | 'riesgo_alto' | 'alertadas' | 'crit
               </td>
 
               <td class="col-fecha">
-                {{ s.fecha_recepcion ? (s.fecha_recepcion | date:'dd MMM yy, HH:mm') : '—' }}
+                {{ s.fecha_recepcion ? (s.fecha_recepcion | date:'dd/MM/yyyy HH:mm') : '—' }}
               </td>
 
               <td>

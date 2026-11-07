@@ -566,10 +566,9 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
 
   formatDateShort(d?: string | null): string {
     if (!d) return '';
-    return new Date(d).toLocaleString('es-PE', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+    const dt = new Date(d);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(dt.getDate())}/${p(dt.getMonth()+1)}/${dt.getFullYear()} ${p(dt.getHours())}:${p(dt.getMinutes())}`;
   }
 
   formatProb(p?: number): string {

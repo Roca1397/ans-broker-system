@@ -79,6 +79,8 @@ export class CriticalRequestsComponent {
 
   formatFecha(f: string | undefined): string {
     if (!f) return '—';
-    return new Date(f).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
+    const dt = new Date(f);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(dt.getDate())}/${p(dt.getMonth()+1)}/${dt.getFullYear()} ${p(dt.getHours())}:${p(dt.getMinutes())}`;
   }
 }
