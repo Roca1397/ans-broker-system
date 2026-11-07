@@ -12,7 +12,7 @@ ARCHIVO NUEVO: backend/app/routers/admin.py
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from typing import List
@@ -98,6 +98,12 @@ async def admin_listar_aseguradoras(db: AsyncSession = Depends(get_db), _=Depend
 
 @router.post("/aseguradoras", response_model=AseguradoraOut, tags=["Admin · aseguradoras"])
 async def admin_crear_aseguradora(data: AseguradoraCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_admin)):
+    dup_nombre = (await db.execute(
+        select(Aseguradora).where(func.lower(Aseguradora.nombre) == func.lower(data.nombre))
+    )).scalar_one_or_none()
+    if dup_nombre:
+        raise HTTPException(409, f"Ya existe una aseguradora con razón social '{data.nombre}'")
+
     obj = Aseguradora(
         nombre=data.nombre, codigo=data.codigo,
         contacto=data.contacto, direccion=data.direccion,
