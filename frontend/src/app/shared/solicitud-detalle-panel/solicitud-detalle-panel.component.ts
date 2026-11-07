@@ -31,8 +31,13 @@ import {
         <!-- Sticky header -->
         <header class="panel-head">
           <div class="panel-head-left">
-            <span class="ticket-chip">{{ detail()?.nro_ticket || '…' }}</span>
-            <span class="source-chip">{{ detail()?.fuente || 'manual' }}</span>
+            <div class="panel-title-wrap">
+              <span class="panel-section-title">Detalle de Solicitud</span>
+              <div class="panel-chips">
+                <span class="ticket-chip">{{ detail()?.nro_ticket || '…' }}</span>
+                <span class="source-chip">{{ detail()?.fuente || 'manual' }}</span>
+              </div>
+            </div>
           </div>
           <div class="panel-head-right">
             <button *ngIf="auth.isAdmin()" class="btn-icon danger" (click)="deleteSolicitud()" title="Eliminar solicitud">
@@ -282,6 +287,9 @@ import {
       background: var(--bg-surface); flex-shrink: 0;
     }
     .panel-head-left { display: flex; align-items: center; gap: 8px; }
+    .panel-title-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .panel-section-title { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .panel-chips { display: flex; align-items: center; gap: 8px; }
     .panel-head-right { display: flex; align-items: center; gap: 6px; }
     .ticket-chip {
       font-family: var(--font-mono, monospace); font-size: 0.82rem;
