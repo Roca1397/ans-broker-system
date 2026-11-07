@@ -36,7 +36,12 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <div class="form-group">
               <label>Correo Electrónico</label>
-              <input type="email" formControlName="email" placeholder="usuario@broker.com" />
+              <input type="email" formControlName="email" placeholder="usuario@broker.com"
+                [class.input-error]="form.get('email')!.invalid && form.get('email')!.touched" />
+              <span class="field-error"
+                *ngIf="form.get('email')!.invalid && form.get('email')!.touched">
+                El correo electrónico no es válido
+              </span>
             </div>
             <div class="form-group">
               <label>Contraseña</label>
@@ -62,6 +67,8 @@ import { AuthService } from '../../services/auth.service';
     .brand-icon { font-size: 2rem; color: var(--primary); }
     .auth-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 36px; box-shadow: var(--shadow); h1 { font-size: 1.5rem; margin-bottom: 6px; } .subtitle { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 28px; } }
     .auth-link { text-align: center; margin-top: 24px; font-size: 0.875rem; color: var(--text-secondary); a { color: var(--primary); text-decoration: none; } }
+    .input-error { border-color: var(--danger) !important; }
+    .field-error { display: block; margin-top: 4px; font-size: 0.78rem; color: var(--danger); }
   `],
 })
 export class RegisterComponent {
