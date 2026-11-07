@@ -261,9 +261,9 @@ const COL_MINS: Record<string, number> = {
             <tr *ngIf="solicitudes().length === 0">
               <td [attr.colspan]="visibleColCount()">
                 <div class="empty-state">
-                  <div class="empty-icon">📭</div>
-                  <h3>No hay solicitudes</h3>
-                  <p>Cuando lleguen correos desde Outlook aparecerán aquí.</p>
+                  <div class="empty-icon">{{ hasActiveSearch ? '🔍' : '📭' }}</div>
+                  <h3>{{ hasActiveSearch ? 'Sin resultados' : 'No hay solicitudes' }}</h3>
+                  <p>{{ hasActiveSearch ? 'No se encontraron resultados para la búsqueda realizada.' : 'Cuando lleguen correos desde Outlook aparecerán aquí.' }}</p>
                 </div>
               </td>
             </tr>
@@ -431,6 +431,11 @@ export class ListaSolicitudesComponent implements OnInit, OnDestroy {
   filterRamo            = '';
   filterPrediccion      = '';
   orderBy           = 'created_at';
+
+  get hasActiveSearch(): boolean {
+    return !!(this.searchTerm || this.filterEstado || this.filterTipoSolicitud ||
+              this.filterPrioridad || this.filterAseguradora || this.filterRamo || this.filterPrediccion);
+  }
 
   get orderByLabel(): string {
     const labels: Record<string, string> = {
