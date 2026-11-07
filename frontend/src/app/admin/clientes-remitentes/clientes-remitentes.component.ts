@@ -171,7 +171,7 @@ export class ClientesRemitentesComponent implements OnInit {
         this.saving.set(false);
         const detail = err.error?.detail;
         if (Array.isArray(detail)) {
-          this.error.set(detail.map((e: any) => e.msg || JSON.stringify(e)).join(', '));
+          this.error.set('El correo ingresado no es válido');
         } else {
           this.error.set(typeof detail === 'string' ? detail : 'Error al guardar');
         }
