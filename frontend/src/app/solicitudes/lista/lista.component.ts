@@ -223,7 +223,7 @@ const COL_MINS: Record<string, number> = {
           <tbody>
             <tr *ngFor="let s of solicitudes()" (click)="openDetail(s)" class="row-clickable">
               <td *ngIf="col('ticket')"><span class="ticket">{{ s.nro_ticket || '—' }}</span></td>
-              <td *ngIf="col('cliente')" class="cell-nowrap">{{ s.cliente || '—' }}</td>
+              <td *ngIf="col('cliente')" class="cell-nowrap">{{ (s.cliente && s.cliente !== 'Pendiente de asignar') ? s.cliente : '—' }}</td>
               <td *ngIf="col('tipo')">
                 <span *ngIf="s.tipo_solicitud" class="pill pill-tipo">{{ s.tipo_solicitud }}</span>
                 <span *ngIf="!s.tipo_solicitud" class="muted-dash">—</span>

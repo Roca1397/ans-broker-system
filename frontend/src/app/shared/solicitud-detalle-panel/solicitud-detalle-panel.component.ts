@@ -601,7 +601,7 @@ export class SolicitudDetallePanelComponent implements OnChanges {
       next: (d) => {
         this.detail.set(d);
         this.form = {
-          cliente:           d.cliente ?? '',
+          cliente:           (d.cliente && d.cliente !== 'Pendiente de asignar') ? d.cliente : '',
           tipo_solicitud_id: d.tipo_solicitud_id ?? null,
           estado_id:         d.estado_id ?? null,
           prioridad_id:      d.prioridad_id ?? null,

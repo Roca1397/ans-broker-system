@@ -42,7 +42,7 @@ import { SolicitudRiesgo } from '../dashboard.models';
                     {{ r.nro_ticket || '—' }}
                   </a>
                 </td>
-                <td class="text-clamp" [title]="r.cliente || ''">{{ r.cliente || '—' }}</td>
+                <td class="text-clamp" [title]="(r.cliente && r.cliente !== 'Pendiente de asignar') ? r.cliente : ''">{{ (r.cliente && r.cliente !== 'Pendiente de asignar') ? r.cliente : '—' }}</td>
                 <td>{{ r.tipo_solicitud || '—' }}</td>
                 <td>{{ r.ejecutivo || '—' }}</td>
                 <td>{{ r.aseguradora || '—' }}</td>
