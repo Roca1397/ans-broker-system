@@ -230,7 +230,12 @@ import {
             <section class="form-section">
               <h4 class="section-title">Comentarios</h4>
               <pre class="comments-box" *ngIf="d.comentarios">{{ d.comentarios }}</pre>
-              <p class="no-comments" *ngIf="!d.comentarios">Sin comentarios.</p>
+              <p class="no-comments" *ngIf="!d.comentarios && pendingComments.length === 0">Sin comentarios.</p>
+              <div class="pending-comments" *ngIf="pendingComments.length > 0">
+                <div class="pending-comment" *ngFor="let c of pendingComments">
+                  <span class="pending-badge">Sin guardar</span> {{ c }}
+                </div>
+              </div>
               <div class="comment-add">
                 <textarea [(ngModel)]="newComment" rows="2" placeholder="Agregar comentario..."></textarea>
                 <button class="btn btn-outline btn-sm" (click)="addComment()" [disabled]="!newComment.trim()">
@@ -368,6 +373,9 @@ import {
 
     .comments-box { background: var(--bg-base); padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 0.78rem; white-space: pre-wrap; max-height: 160px; overflow-y: auto; color: var(--text-secondary); margin: 0 0 10px; }
     .no-comments { color: var(--text-muted); font-size: 0.83rem; margin: 0 0 10px; }
+    .pending-comments { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+    .pending-comment { font-size: 0.78rem; color: var(--text-secondary); background: rgba(245,158,11,0.08); border: 1px dashed rgba(245,158,11,0.4); border-radius: var(--radius); padding: 6px 10px; }
+    .pending-badge { display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; background: rgba(245,158,11,0.15); color: #d97706; border-radius: 10px; padding: 1px 7px; margin-right: 6px; }
     .comment-add { display: flex; gap: 8px; align-items: flex-start; }
     .comment-add textarea { flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.82rem; resize: vertical; background: var(--bg-base); color: var(--text-primary); }
     .comment-add textarea:focus { outline: none; border-color: var(--primary); }
@@ -406,6 +414,7 @@ export class SolicitudDetallePanelComponent implements OnChanges {
 
   form: any = {};
   newComment = '';
+  pendingComments: string[] = [];
 
   aseguradoras:   Aseguradora[]  = [];
   tiposSolicitud: CatalogoItem[] = [];
@@ -439,6 +448,7 @@ export class SolicitudDetallePanelComponent implements OnChanges {
     this.detail.set(null);
     this.form = {};
     this.newComment = '';
+    this.pendingComments = [];
     this.saveError.set(null);
     this.uploadError.set(null);
     this.closed.emit();
@@ -471,8 +481,25 @@ export class SolicitudDetallePanelComponent implements OnChanges {
     this.svc.actualizar(id, payload).subscribe({
       next: (d) => {
         this.detail.set(d);
-        this.saving.set(false);
-        this.saved.emit();
+        // Guardar comentarios pendientes en secuencia
+        const comments = [...this.pendingComments];
+        this.pendingComments = [];
+        const saveNext = (i: number) => {
+          if (i >= comments.length) {
+            this.saving.set(false);
+            this.saved.emit();
+            return;
+          }
+          this.svc.agregarComentario(id, comments[i]).subscribe({
+            next: (res) => {
+              const cur = this.detail();
+              if (cur) this.detail.set({ ...cur, comentarios: res.comentarios });
+              saveNext(i + 1);
+            },
+            error: () => saveNext(i + 1),
+          });
+        };
+        saveNext(0);
       },
       error: (err) => {
         this.saving.set(false);
@@ -492,13 +519,9 @@ export class SolicitudDetallePanelComponent implements OnChanges {
   }
 
   addComment() {
-    const id = this.detail()?.id;
-    if (!id || !this.newComment.trim()) return;
-    this.svc.agregarComentario(id, this.newComment).subscribe(res => {
-      const d = this.detail();
-      if (d) this.detail.set({ ...d, comentarios: res.comentarios });
-      this.newComment = '';
-    });
+    if (!this.newComment.trim()) return;
+    this.pendingComments.push(this.newComment.trim());
+    this.newComment = '';
   }
 
   deleteSolicitud() {
@@ -623,6 +646,7 @@ export class SolicitudDetallePanelComponent implements OnChanges {
           nro_atenciones:    d.nro_atenciones ?? 1,
         };
         this.newComment = '';
+        this.pendingComments = [];
         this.loading.set(false);
       },
       error: () => {
