@@ -90,7 +90,7 @@ const COL_MINS: Record<string, number> = {
         <button *ngIf="fechaDesde || fechaHasta" class="date-clear" (click)="clearDates()" title="Limpiar fechas">✕</button>
       </div>
 
-      <div class="filter-btn-wrap">
+      <div class="filter-btn-wrap" [class.is-open]="showFilters">
         <button class="btn-filter" (click)="showFilters = !showFilters"
                 [class.btn-filter-on]="activeFilterCount() > 0">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -166,7 +166,7 @@ const COL_MINS: Record<string, number> = {
       </div>
 
       <!-- ── Column picker ───────────────────────────────────────── -->
-      <div class="filter-btn-wrap">
+      <div class="filter-btn-wrap" [class.is-open]="showColumnPicker">
         <button class="btn-filter" (click)="toggleColumnPicker()"
                 [class.btn-filter-on]="hasCustomColumns()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -328,7 +328,8 @@ const COL_MINS: Record<string, number> = {
     .date-clear { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.9rem; padding: 4px 6px; border-radius: var(--radius); line-height: 1; align-self: flex-end; margin-bottom: 2px; }
     .date-clear:hover { color: var(--danger); background: rgba(255,76,76,0.08); }
 
-    .filter-btn-wrap { position: relative; z-index: 100; }
+    .filter-btn-wrap { position: relative; z-index: 1; }
+    .filter-btn-wrap.is-open { z-index: 100; }
     .btn-filter {
       display: flex; align-items: center; gap: 6px;
       padding: 9px 16px; border-radius: var(--radius);
