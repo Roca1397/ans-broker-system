@@ -34,7 +34,7 @@ import {
             <div class="panel-title-wrap">
               <span class="panel-section-title">Detalle de Solicitud</span>
               <div class="panel-chips">
-                <span class="ticket-chip">{{ detail()?.nro_ticket || '…' }}</span>
+                <span class="ticket-chip">{{ detail()?.nro_ticket || (detail() ? 'Sin ticket' : '…') }}</span>
                 <span class="source-chip">{{ detail()?.fuente || 'manual' }}</span>
               </div>
             </div>
@@ -58,7 +58,18 @@ import {
           <div class="spinner"></div>
         </div>
 
-        <ng-container *ngIf="!loading() && detail() as d">
+        <!-- Registro inválido (sin número de ticket) -->
+        <div *ngIf="!loading() && detail() && !detail()?.nro_ticket" class="invalid-box">
+          <svg viewBox="0 0 24 24" fill="none" width="44" height="44">
+            <path d="M12 3l10 18H2L12 3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M12 10v5M12 18v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <h3>Este registro no es válido</h3>
+          <p>La solicitud no tiene número de ticket asignado.</p>
+          <button class="btn btn-outline" (click)="close()">Cerrar</button>
+        </div>
+
+        <ng-container *ngIf="!loading() && detail()?.nro_ticket && detail() as d">
 
           <!-- Meta bar -->
           <div class="meta-bar">
@@ -285,6 +296,13 @@ import {
     .panel-loading { display: flex; justify-content: center; align-items: center; padding: 60px; }
     .spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    .invalid-box {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 70px 30px; text-align: center; color: var(--danger);
+    }
+    .invalid-box h3 { margin: 6px 0 0; font-size: 1.05rem; color: var(--text-primary); }
+    .invalid-box p { margin: 0 0 10px; font-size: 0.84rem; color: var(--text-muted); }
 
     .panel-head {
       display: flex; align-items: center; justify-content: space-between;
