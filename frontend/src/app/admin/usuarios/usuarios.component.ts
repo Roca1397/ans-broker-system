@@ -92,16 +92,16 @@ type FormMode = 'create' | 'edit';
           <div *ngIf="formError()" class="form-error">{{ formError() }}</div>
 
           <div class="field">
-            <label>Nombre completo</label>
+            <label>Nombre completo <span class="req">*</span></label>
             <input type="text" [(ngModel)]="form.full_name" placeholder="Juan Pérez" />
           </div>
           <div class="field">
-            <label>Correo electrónico</label>
+            <label>Correo electrónico <span class="req">*</span></label>
             <input type="email" [(ngModel)]="form.email" placeholder="juan@broker.com"
                    [disabled]="mode === 'edit'" />
           </div>
           <div class="field">
-            <label>{{ mode === 'create' ? 'Contraseña' : 'Nueva contraseña (dejar vacío para no cambiar)' }}</label>
+            <label>{{ mode === 'create' ? 'Contraseña' : 'Nueva contraseña (dejar vacío para no cambiar)' }} <span class="req" *ngIf="mode === 'create'">*</span></label>
             <input type="password" [(ngModel)]="form.password"
                    [placeholder]="mode === 'create' ? 'Mín. 8 caracteres' : 'Sin cambios'" />
           </div>
@@ -182,6 +182,7 @@ type FormMode = 'create' | 'edit';
 
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+    .field label .req { color: var(--danger); font-weight: 700; }
     .field input, .field select { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; color: var(--text-primary); background: var(--bg-base); font-family: inherit; }
     .field input:focus, .field select:focus { outline: none; border-color: var(--primary); }
     .field input:disabled { opacity: 0.55; cursor: not-allowed; }
