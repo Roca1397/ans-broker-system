@@ -19,6 +19,15 @@ type FormMode = 'create' | 'edit';
       <button class="btn btn-primary" (click)="openCreate()">+ Nuevo usuario</button>
     </div>
 
+    <!-- Mensaje de éxito -->
+    <div *ngIf="successMsg()" class="toast-success" role="status">
+      <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M6.5 10.2l2.3 2.3 4.7-4.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      {{ successMsg() }}
+    </div>
+
     <!-- Error general -->
     <div *ngIf="loadError()" class="alert-error">{{ loadError() }}</div>
 
@@ -183,6 +192,16 @@ type FormMode = 'create' | 'edit';
     .field { display: flex; flex-direction: column; gap: 5px; }
     .field label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
     .field label .req { color: var(--danger); font-weight: 700; }
+    .toast-success {
+      position: fixed; top: 76px; right: 24px; z-index: 500;
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 18px; border-radius: var(--radius);
+      background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+      font-size: 0.86rem; font-weight: 600;
+      box-shadow: 0 8px 24px rgba(13,30,65,0.14);
+      animation: toastIn 0.2s ease-out;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
     .field input, .field select { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.85rem; color: var(--text-primary); background: var(--bg-base); font-family: inherit; }
     .field input:focus, .field select:focus { outline: none; border-color: var(--primary); }
     .field input:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -201,6 +220,7 @@ export class AdminUsuariosComponent implements OnInit {
   showForm  = signal(false);
   loadError = signal<string | null>(null);
   formError = signal<string | null>(null);
+  successMsg = signal<string | null>(null);
 
   mode: FormMode = 'create';
   editingId: string | null = null;
@@ -275,7 +295,13 @@ export class AdminUsuariosComponent implements OnInit {
         });
 
     obs.subscribe({
-      next: () => { this.saving.set(false); this.closeForm(); this.load(); },
+      next: () => {
+        const wasCreate = this.mode === 'create';
+        this.saving.set(false);
+        this.closeForm();
+        this.load();
+        this.showSuccess(wasCreate ? 'Usuario creado satisfactoriamente' : 'Cambios guardados satisfactoriamente');
+      },
       error: (err) => {
         this.saving.set(false);
         const detail = err?.error?.detail;
@@ -289,6 +315,13 @@ export class AdminUsuariosComponent implements OnInit {
         this.formError.set(msg);
       },
     });
+  }
+
+  private successTimer: any;
+  showSuccess(msg: string) {
+    clearTimeout(this.successTimer);
+    this.successMsg.set(msg);
+    this.successTimer = setTimeout(() => this.successMsg.set(null), 3000);
   }
 
   toggleActive(u: User) {
