@@ -250,6 +250,10 @@ export class AdminUsuariosComponent implements OnInit {
       this.formError.set('Nombre y correo son obligatorios');
       return;
     }
+    if (this.mode === 'create' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.form.email.trim())) {
+      this.formError.set('Correo electrónico no válido');
+      return;
+    }
     if (this.mode === 'create' && this.form.password.length < 8) {
       this.formError.set('La contraseña debe tener al menos 8 caracteres');
       return;
@@ -276,7 +280,11 @@ export class AdminUsuariosComponent implements OnInit {
         this.saving.set(false);
         const detail = err?.error?.detail;
         const msg = Array.isArray(detail)
-          ? detail.map((e: any) => e.msg).join(' | ')
+          ? detail.map((e: any) =>
+              (Array.isArray(e.loc) && e.loc.includes('email')) || /email/i.test(e.msg || '')
+                ? 'Correo electrónico no válido'
+                : e.msg
+            ).join(' | ')
           : (typeof detail === 'string' ? detail : err?.message || 'Error al guardar');
         this.formError.set(msg);
       },
