@@ -98,7 +98,7 @@ import { Cliente, CatalogoItem } from '../../models/models';
     .req { color: var(--danger); }
     .form-actions { margin-top: 14px; display: flex; gap: 8px; }
     .alert-error { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: rgba(255,76,76,0.08); color: var(--danger); font-size: 0.85rem; border: 1px solid rgba(255,76,76,0.3); }
-    .table-card { padding: 0; overflow: hidden; }
+    .table-card { padding: 0; overflow-x: auto; }
     .table-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
     .table-header span { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
     .filter-input { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.82rem; background: var(--bg-surface); color: var(--text-primary); width: 200px; }
@@ -110,7 +110,9 @@ import { Cliente, CatalogoItem } from '../../models/models';
     .td-direccion { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; background: var(--bg-hover); color: var(--text-muted); }
     .pill.activo { background: rgba(16,185,129,0.15); color: var(--success); }
-    .actions { display: flex; gap: 6px; }
+    td.actions { white-space: nowrap; vertical-align: middle; text-align: right; width: 1%; }
+    td.actions .btn + .btn { margin-left: 6px; }
+    tbody td { vertical-align: middle; }
     .loading-state { padding: 40px; text-align: center; color: var(--text-muted); }
     .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; }
     @keyframes spin { to { transform: rotate(360deg); } }

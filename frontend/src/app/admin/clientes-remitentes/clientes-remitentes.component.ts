@@ -96,7 +96,7 @@ import { ClienteRemitente, Cliente } from '../../models/models';
     .form-actions { margin-top: 14px; display: flex; gap: 8px; }
     .alert-error { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: rgba(255,76,76,0.08); color: var(--danger); font-size: 0.85rem; border: 1px solid rgba(255,76,76,0.3); }
 
-    .table-card { padding: 0; overflow: hidden; }
+    .table-card { padding: 0; overflow-x: auto; }
     .card-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
     .card-head h3 { font-size: 0.95rem; color: var(--text-primary); }
     .search-box-sm input { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8rem; min-width: 220px; }
@@ -105,7 +105,9 @@ import { ClienteRemitente, Cliente } from '../../models/models';
     thead th { text-align: left; padding: 10px 14px; background: var(--bg-surface); border-bottom: 2px solid var(--border); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; }
     tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
     .email { font-family: var(--font-mono, monospace); font-size: 0.8rem; color: var(--text-secondary); }
-    .actions { display: flex; gap: 6px; }
+    td.actions { white-space: nowrap; vertical-align: middle; text-align: right; width: 1%; }
+    td.actions .btn + .btn { margin-left: 6px; }
+    tbody td { vertical-align: middle; }
 
     .loading-state { padding: 40px; text-align: center; color: var(--text-muted); }
     .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; }

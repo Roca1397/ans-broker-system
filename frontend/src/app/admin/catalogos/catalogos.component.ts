@@ -133,7 +133,7 @@ interface CatalogTab {
     .form-actions { margin-top: 14px; display: flex; gap: 8px; }
     .alert-error { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); background: rgba(255,76,76,0.08); color: var(--danger); font-size: 0.85rem; border: 1px solid rgba(255,76,76,0.3); }
 
-    .table-card { padding: 0; overflow: hidden; }
+    .table-card { padding: 0; overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     thead th { text-align: left; padding: 10px 14px; background: var(--bg-surface); border-bottom: 2px solid var(--border); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; }
     tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
@@ -141,7 +141,9 @@ interface CatalogTab {
     code { font-family: var(--font-mono, monospace); background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; }
     .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; background: var(--bg-hover); color: var(--text-muted); }
     .pill.activo { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-    .actions { display: flex; gap: 6px; }
+    td.actions { white-space: nowrap; vertical-align: middle; text-align: right; width: 1%; }
+    td.actions .btn + .btn { margin-left: 6px; }
+    tbody td { vertical-align: middle; }
 
     .loading-state { padding: 40px; text-align: center; color: var(--text-muted); }
     .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; }
