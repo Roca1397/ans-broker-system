@@ -45,7 +45,16 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <div class="form-group">
               <label>Contraseña</label>
-              <input type="password" formControlName="password" placeholder="Mín. 8 caracteres" />
+              <input type="password" formControlName="password" placeholder="Mín. 8 caracteres"
+                [class.input-error]="form.get('password')!.invalid && form.get('password')!.touched" />
+              <ng-container *ngIf="form.get('password')!.touched">
+                <span class="field-error" *ngIf="form.get('password')!.hasError('required')">
+                  La contraseña es obligatoria
+                </span>
+                <span class="field-error" *ngIf="form.get('password')!.hasError('minlength')">
+                  La contraseña debe tener al menos 8 caracteres
+                </span>
+              </ng-container>
             </div>
             <button type="submit" class="btn btn-primary w-full btn-lg" [disabled]="loading || form.invalid">
               {{ loading ? 'Creando cuenta...' : 'Crear Cuenta' }}
