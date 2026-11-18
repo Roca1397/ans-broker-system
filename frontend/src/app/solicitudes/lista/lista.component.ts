@@ -57,7 +57,7 @@ const COL_MINS: Record<string, number> = {
     <div class="page-header">
       <div>
         <h1>Solicitudes</h1>
-        <p class="muted">{{ total() }} registros · {{ orderByLabel }}</p>
+        <p class="muted">{{ total() }} {{ total() === 1 ? 'registro' : 'registros' }} · {{ orderByLabel }}</p>
       </div>
       <div class="header-actions">
         <a routerLink="/solicitudes/nueva" class="btn btn-primary">+ Nueva Solicitud</a>
