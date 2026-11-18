@@ -78,9 +78,9 @@ import {
               <span class="meta-val">{{ formatDate(d.fecha_recepcion) || '—' }}</span>
             </div>
             <div class="meta-sep"></div>
-            <div class="meta-item">
+            <div class="meta-item meta-item-grow">
               <span class="meta-label">Remitente</span>
-              <span class="meta-val">{{ d.remitente || '—' }}</span>
+              <span class="meta-val meta-ellipsis" [title]="d.remitente || ''">{{ d.remitente || '—' }}</span>
             </div>
             <ng-container *ngIf="(d.datos_adjuntos?.length || 0) > 0">
               <div class="meta-sep"></div>
@@ -334,11 +334,14 @@ import {
     .btn-icon.danger:hover { background: rgba(255,76,76,0.1); border-color: var(--danger); color: var(--danger); }
 
     .meta-bar {
-      display: flex; align-items: center; flex-wrap: wrap;
+      display: flex; align-items: center; flex-wrap: nowrap;
       padding: 10px 18px; background: var(--bg-surface);
       border-bottom: 2px solid var(--border); flex-shrink: 0;
     }
-    .meta-item { display: flex; flex-direction: column; }
+    .meta-item { display: flex; flex-direction: column; flex-shrink: 0; }
+    .meta-item-grow { flex: 1 1 auto; flex-shrink: 1; min-width: 0; }
+    .meta-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .meta-val { white-space: nowrap; }
     .meta-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 1px; }
     .meta-val { font-size: 0.78rem; color: var(--text-primary); }
     .meta-sep { width: 1px; height: 30px; background: var(--border); margin: 0 16px; }
@@ -414,7 +417,7 @@ import {
     @media (max-width: 768px) {
       .field-grid { grid-template-columns: 1fr; }
       .side-panel { width: 100%; }
-      .meta-sep { display: none; }
+      .meta-sep { margin: 0 10px; }
     }
   `],
 })
