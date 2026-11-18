@@ -29,7 +29,7 @@ import { SolicitudSinAsignar } from '../dashboard.models';
               <span class="ua-prio" *ngIf="s.prioridad">{{ s.prioridad }}</span>
             </div>
             <div class="ua-bottom">
-              <span class="ua-cliente">{{ s.cliente || '—' }}</span>
+              <span class="ua-cliente">{{ (s.cliente && s.cliente !== 'Pendiente de asignar') ? s.cliente : '—' }}</span>
               <span class="ua-tipo" *ngIf="s.tipo_solicitud">&middot; {{ s.tipo_solicitud }}</span>
               <span class="ua-fecha" *ngIf="s.fecha_recepcion">
                 &middot; {{ formatFecha(s.fecha_recepcion) }}

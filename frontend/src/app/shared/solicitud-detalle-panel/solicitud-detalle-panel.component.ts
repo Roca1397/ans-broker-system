@@ -102,7 +102,7 @@ import {
                 <div class="field">
                   <label class="field-label">Cliente</label>
                   <select [(ngModel)]="form.cliente">
-                    <option value="">— Sin asignar —</option>
+                    <option value="">—</option>
                     <option *ngFor="let c of clientes" [value]="c.nombre">{{ c.nombre }}</option>
                   </select>
                 </div>

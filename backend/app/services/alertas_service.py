@@ -57,8 +57,8 @@ async def gestionar_alerta_riesgo(
     tipo = "critico" if prob >= 0.80 else "alto_riesgo"
     pct = round(prob * 100)
     ticket = solicitud.nro_ticket or str(solicitud.id)[:8].upper()
-    cliente = solicitud.cliente or "Sin cliente"
-    mensaje = f"{ticket} — {cliente} — Riesgo de incumplimiento: {pct}%"
+    cliente = solicitud.cliente if solicitud.cliente and solicitud.cliente != "Pendiente de asignar" else None
+    mensaje = (f"{ticket} — {cliente} — " if cliente else f"{ticket} — ") + f"Riesgo de incumplimiento: {pct}%"
 
     if existing:
         prev_prob = existing.probabilidad or 0.0

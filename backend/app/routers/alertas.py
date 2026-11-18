@@ -194,9 +194,9 @@ async def backfill_alertas(
         prob = sol.probabilidad
         pct = round(prob * 100)
         ticket = sol.nro_ticket or str(sol.id)[:8].upper()
-        cliente = sol.cliente or "Sin cliente"
+        cliente = sol.cliente if sol.cliente and sol.cliente != "Pendiente de asignar" else None
         tipo = "critico" if prob >= 0.80 else "alto_riesgo"
-        mensaje = f"{ticket} — {cliente} — Riesgo de incumplimiento: {pct}%"
+        mensaje = (f"{ticket} — {cliente} — " if cliente else f"{ticket} — ") + f"Riesgo de incumplimiento: {pct}%"
 
         db.add(Alerta(
             solicitud_id=sol.id,
