@@ -191,7 +191,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         color: d.fuera_ans > 0 ? 'danger' : 'default',
       },
       {
-        label: 'Alto / Critico',
+        label: 'Alto / Crítico',
         value: d.alto_riesgo + d.criticos,
         icon: 'zap',
         color: (d.alto_riesgo + d.criticos) > 0 ? 'danger' : 'default',
