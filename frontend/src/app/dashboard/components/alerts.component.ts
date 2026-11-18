@@ -70,12 +70,8 @@ export class AlertsComponent {
   formatTime(ts: string): string {
     if (!ts) return '';
     const d = new Date(ts);
-    const diff = Date.now() - d.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1)   return 'Ahora';
-    if (mins < 60)  return `Hace ${mins} min`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24)   return `Hace ${hrs} h`;
-    return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
+    if (isNaN(d.getTime())) return '';
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 }
